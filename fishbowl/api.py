@@ -300,7 +300,7 @@ class Fishbowl:
     def move_inventory(
         self,
         serial_number,
-        part_id,
+        part_number,
         source_location_id,
         destination_location_id,
         quantity=1
@@ -309,28 +309,41 @@ class Fishbowl:
         Move a serialized `Part` from one location to another in Fishbowl.
         """
 
+        # TODO
+        # 1. Fetch complete `Part` object.
+        # 2. Fetch Source Location.
+        # 3. Fetch Destination location.
+        # 4. Construct `Tracking` object.
+        # 5. Send request/receive response response.
+
+        # Fetch complete source `Location` object.
+        source_location_query_request = xmlrequests.LocationQuery(
+            source_location_id
+        )
+        source_location_query_response = self.send_message(
+            source_location_query_request
+        )
+
+        # Fetch complete destination `Location` object.
+        destination_location_query_request = xmlrequests.LocationQuery(
+            destination_location_id
+        )
+        destination_location_query_response = self.send_message(
+            destination_location_query_request
+        )
+
+        part_get_request = xmlrequests.PartGet(part_number, False)
+
         request = xmlrequests.MoveInventory(
             serial_number,
-            part_id,
+            source_location,
+            part,
             quantity,
-            source_location_id,
-            destination_location_id,
+            tracking,
+            destination_location,
             key=self.key,
         )
         response = self.send_message(request)
-
-        for element in response.iter('MoveRs'):
-            check_status(element, allow_none=True)
-            logger.info(','.join([
-                '{}'.format(val)
-                for val in [
-                    'move_inventory',
-                    serial_number,
-                    part_id,
-                    quantity,
-                    source_location_id,
-                    destination_location_id]
-            ]))
 
     @require_connected
     def get_po_list(self, locationgroup):
@@ -486,6 +499,7 @@ class Fishbowl:
             rules relevant to all customers.
         """
         pricing_rules = {None: []}
+
         def process_rules(data, rules):
             for row in data:
                 customer_type = row.pop('CUSTOMERINCLTYPEID')
