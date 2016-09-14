@@ -234,6 +234,39 @@ class PartGet(Request):
             })
 
 
+class LocationQuery():
+    """
+    Build a `LocationQuery` request for execution in Fishbowl.
+    """
+
+    REQUEST_SYNTAX = 'LocationQueryRq'
+    KEY_REQUIRED = True
+
+    def __init__(
+        self,
+        location_id,
+        key=''
+    ):
+
+        if self.KEY_REQUIRED and not key:
+            raise TypeError(
+                "An API key was not provided (not enough arguments for {0} "
+                "request)".format(self.__class__.__name__))
+
+        self.request_elements = {
+            'FbiXml': {
+                'Ticket': {
+                    'Key': str(key)
+                },
+                'FbiMsgsRq': {
+                    'LocationQueryRq': {
+                        'LocationID': location_id
+                    }
+                }
+            }
+        }
+
+
 class MoveInventory():
     """
     Build a `MoveRq` request for execution in Fishbowl.
@@ -244,11 +277,11 @@ class MoveInventory():
 
     def __init__(
         self,
-        serial_number,
-        part_id,
-        source_location_id,
-        destination_location_id,
+        source_location,
+        part,
         quantity,
+        tracking,
+        destination_location,
         key=''
     ):
 
@@ -264,25 +297,11 @@ class MoveInventory():
                 },
                 'FbiMsgsRq': {
                     'MoveRq': {
-                        'SourceLocation': {
-                            'Location': {
-                                'LocationID': str(source_location_id)
-                            }
-                        },
-                        'Part': {
-                            'PartID': str(part_id),
-                            'PartTrackingList': {
-                                'PartTracking': {
-                                    'Name': 'Serial Number'
-                                }
-                            }
-                        },
-                        'DestinationLocation': {
-                            'Location': {
-                                'LocationID': str(destination_location_id)
-                            }
-                        },
-                        'Quantity': str(quantity),
+                        'SourceLocation': source_location,
+                        'Part': part,
+                        'Quantity': quantity,
+                        'Tracking': tracking,
+                        'DestinationLocation': destination_location
                     }
                 }
             }
