@@ -320,8 +320,8 @@ class Fishbowl:
         """
 
         # TODO
-        # 4. Construct `Tracking` object.
-        # 5. Send request/receive response response.
+        # 1. Construct `Tracking` object.
+        # 2. Send request/receive response response.
 
         # Fetch complete source `Location` object.
         source_location = self.location_query(source_location_id)
