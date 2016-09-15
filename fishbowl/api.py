@@ -307,7 +307,7 @@ class Fishbowl:
         return response
 
     @require_connected
-    def move_inventory(
+    def move_serialized_inventory(
         self,
         serial_number,
         part_number,
@@ -319,9 +319,17 @@ class Fishbowl:
         Move a serialized `Part` from one location to another in Fishbowl.
         """
 
-        # TODO
-        # 1. Construct `Tracking` object.
-        # 2. Send request/receive response response.
+        def extract_serial_num_object(elements, serial_number):
+            """
+            TODO:
+            Extract and return `SerialNum` XML block.
+            """
+
+            for element in elements:
+                extracted_serial_number = element.XPath('/FbiXml/FbiMsgsRs/InvQtyRs/InvQty/Tracking/TrackingItem/SerialBoxList/SerialBox/SerialNumList/SerialNum/Number/text()')
+                if serial_number == extracted_serial_number:
+                    extracted_serial_num_object = element.XPath('/FbiXml/FbiMsgsRs/InvQtyRs/InvQty/Tracking/TrackingItem/SerialBoxList/SerialBox/SerialNumList/SerialNum/node()')
+                    return extracted_serial_num_object
 
         # Fetch complete source `Location` object.
         source_location = self.location_query(source_location_id)
@@ -342,7 +350,7 @@ class Fishbowl:
             'Active': True  # TODO: Verify if this is bool or string.
         }
 
-        # Construct `Tracking` object.
+        # Construct `Tracking` object.`
         tracking = {
             'TrackingItem': {
                 'PartTracking': part_tracking
@@ -352,8 +360,8 @@ class Fishbowl:
                     'Committed': False,
                     'SerialNumList': {
                         'SerialNum': {
-                            'SerialID': None,  # TODO: Where do I get this?
-                            'SerialNumID': None,  # TODO: Where do I get this?
+                            'SerialID': serial_id,
+                            'SerialNumID': serial_number_id,
                             'Number': serial_number,
                             'PartTracking': part_tracking
                         }
