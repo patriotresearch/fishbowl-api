@@ -297,6 +297,16 @@ class Fishbowl:
                 for val in ['cycle_inv', partnum, qty, locationid]]))
 
     @require_connected
+    def location_query(self, location_id):
+        """
+        Fetch information about a `Location`.
+        """
+
+        request = xmlrequests.LocationQuery(location_id, key=self.key)
+        response = self.send_message(request)
+        return response
+
+    @require_connected
     def move_inventory(
         self,
         serial_number,
@@ -310,31 +320,49 @@ class Fishbowl:
         """
 
         # TODO
-        # 1. Fetch complete `Part` object.
-        # 2. Fetch Source Location.
-        # 3. Fetch Destination location.
         # 4. Construct `Tracking` object.
         # 5. Send request/receive response response.
 
         # Fetch complete source `Location` object.
-        source_location_query_request = xmlrequests.LocationQuery(
-            source_location_id
-        )
-        source_location_query_response = self.send_message(
-            source_location_query_request
-        )
+        source_location = self.location_query(source_location_id)
 
         # Fetch complete destination `Location` object.
-        destination_location_query_request = xmlrequests.LocationQuery(
-            destination_location_id
-        )
-        destination_location_query_response = self.send_message(
-            destination_location_query_request
-        )
+        destination_location = self.location_query(destination_location_id)
 
-        part_get_request = xmlrequests.PartGet(part_number, False)
-        part_get_response = self.send_message(part_get_request)
+        # Fetch complete `Part` object.
+        part = self.part_get(part_number)
 
+        # Construct `PartTracking` object.
+        part_tracking = {
+            'PartTrackingID': 4,
+            'Name': 'Serial Number',
+            'Abbr': 'SN(s)',
+            'SortOrder': 4,
+            'TrackingTypeID': 40,
+            'Active': True  # TODO: Verify if this is bool or string.
+        }
+
+        # Construct `Tracking` object.
+        tracking = {
+            'TrackingItem': {
+                'PartTracking': part_tracking
+            },
+            'SerialBoxList': {
+                'SerialBox': {
+                    'Committed': False,
+                    'SerialNumList': {
+                        'SerialNum': {
+                            'SerialID': None,  # TODO: Where do I get this?
+                            'SerialNumID': None,  # TODO: Where do I get this?
+                            'Number': serial_number,
+                            'PartTracking': part_tracking
+                        }
+                    }
+                }
+            }
+        }
+
+        # Move.
         move_request = xmlrequests.MoveInventory(
             serial_number,
             source_location,
@@ -345,6 +373,7 @@ class Fishbowl:
             key=self.key,
         )
         response = self.send_message(move_request)
+        return response
 
     @require_connected
     def get_po_list(self, locationgroup):
