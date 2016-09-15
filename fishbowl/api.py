@@ -333,8 +333,9 @@ class Fishbowl:
         )
 
         part_get_request = xmlrequests.PartGet(part_number, False)
+        part_get_response = self.send_message(part_get_request)
 
-        request = xmlrequests.MoveInventory(
+        move_request = xmlrequests.MoveInventory(
             serial_number,
             source_location,
             part,
@@ -343,7 +344,7 @@ class Fishbowl:
             destination_location,
             key=self.key,
         )
-        response = self.send_message(request)
+        response = self.send_message(move_request)
 
     @require_connected
     def get_po_list(self, locationgroup):
