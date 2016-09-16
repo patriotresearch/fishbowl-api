@@ -309,7 +309,37 @@ class Fishbowl:
     @require_connected
     def move_serialized_inventory(
         self,
+        part_number,
         serial_number,
+        begin_location,
+        end_location,
+        note='',
+        quantity=1,
+    ):
+
+        header_row = '"PartNumber","BeginLocation","Qty","EndLocation","Note","Tracking-Serial Number"'
+        part_row = ','.join(
+            [
+                part_number,
+                begin_location,
+                quantity,
+                end_location,
+                note,
+            ]
+        )
+
+        # Build request and add rows.
+        request = xmlrequests.ImportRequest('ImportMoveInventory')
+        request.add_rows(
+            [header_row, part_row, 'Serial Number', serial_number]
+        )
+
+        response = self.send_message(request)
+        return response
+
+    @require_connected
+    def move_inventory(
+        self,
         part_number,
         source_location_id,
         destination_location_id,
@@ -318,18 +348,6 @@ class Fishbowl:
         """
         Move a serialized `Part` from one location to another in Fishbowl.
         """
-
-        def extract_serial_num_object(elements, serial_number):
-            """
-            TODO:
-            Extract and return `SerialNum` XML block.
-            """
-
-            for element in elements:
-                extracted_serial_number = element.XPath('/FbiXml/FbiMsgsRs/InvQtyRs/InvQty/Tracking/TrackingItem/SerialBoxList/SerialBox/SerialNumList/SerialNum/Number/text()')
-                if serial_number == extracted_serial_number:
-                    extracted_serial_num_object = element.XPath('/FbiXml/FbiMsgsRs/InvQtyRs/InvQty/Tracking/TrackingItem/SerialBoxList/SerialBox/SerialNumList/SerialNum/node()')
-                    return extracted_serial_num_object
 
         # Fetch complete source `Location` object.
         source_location = self.location_query(source_location_id)
@@ -340,43 +358,11 @@ class Fishbowl:
         # Fetch complete `Part` object.
         part = self.part_get(part_number)
 
-        # Construct `PartTracking` object.
-        part_tracking = {
-            'PartTrackingID': 4,
-            'Name': 'Serial Number',
-            'Abbr': 'SN(s)',
-            'SortOrder': 4,
-            'TrackingTypeID': 40,
-            'Active': True  # TODO: Verify if this is bool or string.
-        }
-
-        # Construct `Tracking` object.`
-        tracking = {
-            'TrackingItem': {
-                'PartTracking': part_tracking
-            },
-            'SerialBoxList': {
-                'SerialBox': {
-                    'Committed': False,
-                    'SerialNumList': {
-                        'SerialNum': {
-                            'SerialID': serial_id,
-                            'SerialNumID': serial_number_id,
-                            'Number': serial_number,
-                            'PartTracking': part_tracking
-                        }
-                    }
-                }
-            }
-        }
-
         # Move.
         move_request = xmlrequests.MoveInventory(
-            serial_number,
             source_location,
             part,
             quantity,
-            tracking,
             destination_location,
             key=self.key,
         )

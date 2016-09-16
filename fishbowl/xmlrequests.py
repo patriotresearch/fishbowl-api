@@ -280,7 +280,6 @@ class MoveInventory():
         source_location,
         part,
         quantity,
-        tracking,
         destination_location,
         key=''
     ):
@@ -300,7 +299,6 @@ class MoveInventory():
                         'SourceLocation': source_location,
                         'Part': part,
                         'Quantity': quantity,
-                        'Tracking': tracking,
                         'DestinationLocation': destination_location
                     }
                 }
