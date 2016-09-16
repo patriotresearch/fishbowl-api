@@ -316,20 +316,20 @@ class Fishbowl:
         note='',
         quantity=1,
     ):
-
+        import ipdb; ipdb.set_trace()
         header_row = '"PartNumber","BeginLocation","Qty","EndLocation","Note","Tracking-Serial Number"'
         part_row = ','.join(
             [
                 part_number,
                 begin_location,
-                quantity,
+                str(quantity),
                 end_location,
                 note,
             ]
         )
 
         # Build request and add rows.
-        request = xmlrequests.ImportRequest('ImportMoveInventory')
+        request = xmlrequests.ImportRequest('ImportMoveInventory', self.key)
         request.add_rows(
             [header_row, part_row, 'Serial Number', serial_number]
         )
