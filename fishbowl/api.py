@@ -316,7 +316,6 @@ class Fishbowl:
         note='',
         quantity=1,
     ):
-
         """
         Move a serialized `Part` from one location to another, in Fishbowl.
         """
@@ -339,38 +338,6 @@ class Fishbowl:
         )
 
         response = self.send_message(request)
-        return response
-
-    @require_connected
-    def move_inventory(
-        self,
-        part_number,
-        source_location_id,
-        destination_location_id,
-        quantity=1
-    ):
-        """
-        Move a `Part` from one location to another in Fishbowl.
-        """
-
-        # Fetch complete source `Location` object.
-        source_location = self.location_query(source_location_id)
-
-        # Fetch complete destination `Location` object.
-        destination_location = self.location_query(destination_location_id)
-
-        # Fetch complete `Part` object.
-        part = self.part_get(part_number)
-
-        # Move.
-        move_request = xmlrequests.MoveInventory(
-            source_location,
-            part,
-            quantity,
-            destination_location,
-            key=self.key,
-        )
-        response = self.send_message(move_request)
         return response
 
     @require_connected
