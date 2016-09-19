@@ -316,7 +316,11 @@ class Fishbowl:
         note='',
         quantity=1,
     ):
-        import ipdb; ipdb.set_trace()
+
+        """
+        Move a serialized `Part` from one location to another, in Fishbowl.
+        """
+
         header_row = '"PartNumber","BeginLocation","Qty","EndLocation","Note","Tracking-Serial Number"'
         part_row = ','.join(
             [
@@ -329,7 +333,7 @@ class Fishbowl:
         )
 
         # Build request and add rows.
-        request = xmlrequests.ImportRequest('ImportMoveInventory', self.key)
+        request = xmlrequests.ImportRequest('ImportMoveInventory', key=self.key)
         request.add_rows(
             [header_row, part_row, 'Serial Number', serial_number]
         )
@@ -346,7 +350,7 @@ class Fishbowl:
         quantity=1
     ):
         """
-        Move a serialized `Part` from one location to another in Fishbowl.
+        Move a `Part` from one location to another in Fishbowl.
         """
 
         # Fetch complete source `Location` object.
