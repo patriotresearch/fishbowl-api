@@ -309,8 +309,8 @@ class Fishbowl:
     @require_connected
     def move_serialized_inventory(
         self,
-        part_number,
         serial_number,
+        part_number,
         begin_location,
         end_location,
         note='',
