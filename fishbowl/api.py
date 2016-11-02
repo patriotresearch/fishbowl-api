@@ -142,11 +142,11 @@ class Fishbowl:
         """
         Close connection to Fishbowl API.
         """
-        self._connected = False
-        self.key = None
         try:
             if not self.connected:
                 raise OSError('Not connected')
+            self._connected = False
+            self.key = None
             self.stream.close()
         except Exception:
             if not skip_errors:
