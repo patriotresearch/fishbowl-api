@@ -34,7 +34,7 @@ class Request(object):
                 if isinstance(value, datetime.datetime):
                     value = value.strftime("%Y-%m-%dT%H:%M:%S")
                 else:
-                    value = str(value)
+                    value = '%s' % value
                 el.text = value
 
     def add_request_element(self, name):
