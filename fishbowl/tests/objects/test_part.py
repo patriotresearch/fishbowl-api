@@ -1,5 +1,6 @@
 from __future__ import unicode_literals
 import os
+from decimal import Decimal
 
 from fishbowl import objects
 from . import utils
@@ -19,7 +20,7 @@ class PartTest(utils.ObjectTest):
         'PartClassID': 0,
         'PartID': 60,
         'SerializedFlag': True,
-        'StandardCost': '0',
+        'StandardCost': Decimal(0),
         'TrackingFlag': True,
         'TypeID': 10,
         'Weight': 0,
