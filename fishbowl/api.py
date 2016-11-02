@@ -255,8 +255,10 @@ class Fishbowl:
             received_length = True
             while byte_count < length:
                 byte = self.stream.recv(1)
+                if sys.version_info < (3,):
+                    byte = ord(byte)
                 byte_count += 1
-                response.append(ord(byte))
+                response.append(byte)
         except socket.timeout:
             self.close(skip_errors=True)
             if received_length:
