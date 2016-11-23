@@ -125,7 +125,7 @@ class FishbowlObject(collections.Mapping):
             children = len(child)
             key = child.tag
             if six.PY2:
-                key = key.decode(self.encoding)
+                key = key.encode(self.encoding)
             if children:
                 if [el for el in child if el.text.strip()]:
                     data[key] = self.get_xml_data(child)
@@ -134,13 +134,13 @@ class FishbowlObject(collections.Mapping):
                     for el in child:
                         inner_key = el.tag
                         if six.PY2:
-                            inner_key = inner_key.decode(self.encoding)
+                            inner_key = inner_key.encode(self.encoding)
                         inner.append({inner_key: self.get_xml_data(el)})
                     data[key] = inner
             else:
                 value = child.text
                 if value is not None and six.PY2:
-                    value = value.decode(self.encoding)
+                    value = value.encode(self.encoding)
                 data[key] = value
         return data
 
