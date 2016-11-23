@@ -99,6 +99,7 @@ class Fishbowl:
             stream.connect((self.host, self.port))
         except socket.error as e:
             msg = getattr(e, 'strerror', None) or e.message
+            logger.error("Fishbowl API connection failure: {}".format(msg))
             msg += ' ({}:{})'.format(self.host, self.port)
             raise FishbowlConnectionError(msg)
         stream.settimeout(timeout)
