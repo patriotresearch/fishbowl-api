@@ -7,6 +7,7 @@ import hashlib
 import functools
 import logging
 import sys
+import time
 from functools import partial
 from lxml import etree
 import six
@@ -89,18 +90,24 @@ class Fishbowl:
     def connected(self):
         return self._connected
 
-    def make_stream(self, timeout=5):
+    def make_stream(self, timeout=5, retry=3):
         """
         Create a connection to communicate with the API.
         """
-        stream = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         logger.info('Connecting to {}:{}'.format(self.host, self.port))
-        try:
-            stream.connect((self.host, self.port))
-        except socket.error as e:
-            msg = getattr(e, 'strerror', None) or e.message
-            logger.error("Fishbowl API connection failure: {}".format(msg))
-            raise FishbowlConnectionError(msg)
+        while True:
+            stream = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            stream.settimeout(3)  # Hard code the connection timeout at 5s
+            try:
+                stream.connect((self.host, self.port))
+                break
+            except socket.error as e:
+                msg = getattr(e, 'strerror', None) or e.message
+                logger.error("Fishbowl API connection failure: {}".format(msg))
+                if not retry:
+                    raise FishbowlConnectionError(msg)
+                time.sleep(5)
+                retry -= 1
         stream.settimeout(timeout)
         return stream
 
