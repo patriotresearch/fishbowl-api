@@ -99,6 +99,7 @@ class Fishbowl:
             stream.connect((self.host, self.port))
         except socket.error as e:
             msg = getattr(e, 'strerror', None) or e.message
+            msg += ' ({}:{})'.format(self.host, self.port)
             raise FishbowlConnectionError(msg)
         stream.settimeout(timeout)
         return stream
@@ -108,7 +109,8 @@ class Fishbowl:
         Open socket stream, set timeout, and log in.
         """
         password = base64.b64encode(
-            hashlib.md5(password.encode(self.encoding)).digest()).decode('ascii')
+            hashlib.md5(password.encode(self.encoding)).digest()
+        ).decode('ascii')
 
         if self.connected:
             self.close()
