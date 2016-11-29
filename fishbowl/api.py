@@ -97,7 +97,7 @@ class Fishbowl:
         logger.info('Connecting to {}:{}'.format(self.host, self.port))
         while True:
             stream = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            stream.settimeout(3)  # Hard code the connection timeout at 5s
+            stream.settimeout(3)  # Hard code the connection timeout at 3s
             try:
                 stream.connect((self.host, self.port))
                 break
