@@ -32,7 +32,7 @@ def all_fishbowl_objects():
 class FishbowlObject(collections.Mapping):
     id_field = None
     name_attr = None
-    encoding = 'latin-1'
+    encoding = 'utf-8'
 
     def __init__(self, data=None, lazy_data=None, name=None):
         if not (data is None) ^ (lazy_data is None):
