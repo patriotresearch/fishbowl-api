@@ -541,9 +541,6 @@ class FishbowlAPI(object):
         self.connection_args = connection_args
 
     def __enter__(self):
-        if self.connected:
-            raise FishbowlConnectionError(
-                "Fishbowl connection unexpectedly already established")
         self.fb = Fishbowl()
         self.fb.connect(**self.connection_args)
         return self.fb
