@@ -72,12 +72,16 @@ def require_connected(func):
 
 class Fishbowl:
     """
-    Fishbowl API.
+    Fishbowl API connection.
+
+    For standard higher level usage, use the :cls:`FishbowlAPI` that creates
+    instances of this class as required.
 
     Example usage::
 
         fishbowl = Fishbowl()
-        fishbowl.connect(username='admin', password='admin')
+        fishbowl.connect(
+            username='admin', password='pw', host='10.0.0.1', port=28192)
     """
     host = 'localhost'
     port = 28192
@@ -111,7 +115,7 @@ class Fishbowl:
         stream.settimeout(timeout)
         return stream
 
-    def connect(self, username, password, host=None, port=None, timeout=5):
+    def connect(self, username, password, host, port, timeout=5):
         """
         Open socket stream, set timeout, and log in.
         """
@@ -122,10 +126,8 @@ class Fishbowl:
         if self.connected:
             self.close()
 
-        if host:
-            self.host = host
-        if port:
-            self.port = int(port)
+        self.host = host
+        self.port = int(port)
         self.stream = self.make_stream(timeout=float(timeout))
         self._connected = True
 
@@ -514,6 +516,44 @@ class Fishbowl:
                 customer.mapped['PricingRules'] = rules
             customers.append(customer)
         return customers
+
+
+class FishbowlAPI(object):
+    """
+    Create (preferably short lived) Fishbowl connections.
+
+    Example usage::
+
+        from fishbowl.api import FishbowlAPI
+        fishbowl_api = FishbowlAPI(
+            username='admin', password='pw', host='10.0.0.1', port=28192)
+
+        def my_func():
+            with fishbowl_api as connection:
+                products = connection.get_products()
+
+            # Keep the connection open as short as possible by handling logic
+            # outside of the loop.
+            process_products(products)
+    """
+
+    def __init__(self, **connection_args):
+        self.connection_args = connection_args
+
+    def __enter__(self):
+        if self.connected:
+            raise FishbowlConnectionError(
+                "Fishbowl connection unexpectedly already established")
+        self.fb = Fishbowl()
+        self.fb.connect(**self.connection_args)
+        return self.fb
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        """
+        Close the connection, but only show any errors while attepmting this if
+        the context didn't raise an exception.
+        """
+        self.fb.close(skip_errors=bool(traceback))
 
 
 def check_status(element, expected=statuscodes.SUCCESS, allow_none=False):
