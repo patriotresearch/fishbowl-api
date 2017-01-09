@@ -24,7 +24,7 @@ import sys
 import json
 from lxml import etree
 
-from fishbowl.api import Fishbowl
+from fishbowl.api import FishbowlAPI
 
 try:
     import configparser
@@ -55,33 +55,31 @@ def run():
     # add the handler to the root logger
     logging.getLogger('').addHandler(console)
 
-    fishbowl = Fishbowl()
-    fishbowl.connect(**connect_options)
+    with FishbowlAPI(**connect_options) as fishbowl:
+        if len(sys.argv) > 1:
+            value = None
+            if len(sys.argv) > 2:
+                value = json.loads(
+                    sys.argv[2], object_pairs_hook=collections.OrderedDict)
+            response = fishbowl.send_request(sys.argv[1], value)
+            return etree.tostring(response).decode('utf-8')
 
-    if len(sys.argv) > 1:
-        value = None
-        if len(sys.argv) > 2:
-            value = json.loads(
-                sys.argv[2], object_pairs_hook=collections.OrderedDict)
-        response = fishbowl.send_request(sys.argv[1], value)
-        return etree.tostring(response).decode('utf-8')
+        # fishbowl.send_request(
+        #     'GetSOListRq',
+        #     {
+        #         'DateCreatedEnd': datetime.datetime(1900, 1, 1),
+        #     }
+        # )
+        # fishbowl.send_request('GetPartListRq')
+        # with open('LightPartListRq.xml', 'w') as f:
+        #     f.write(etree.tostring(fishbowl.send_request('LightPartListRq')))
+        # response = fishbowl.send_request('GetShipListRq')
 
-    # fishbowl.send_request(
-    #     'GetSOListRq',
-    #     {
-    #         'DateCreatedEnd': datetime.datetime(1900, 1, 1),
-    #     }
-    # )
-    # fishbowl.send_request('GetPartListRq')
-    # with open('LightPartListRq.xml', 'w') as f:
-    #     f.write(etree.tostring(fishbowl.send_request('LightPartListRq')))
-    # response = fishbowl.send_request('GetShipListRq')
+        # products = fishbowl.get_products()
+        customers = fishbowl.get_customers_fast(populate_pricing_rules=True,
+            populate_addresses=False)
+        # rules = fishbowl.get_pricing_rules()
+        import ipdb; ipdb.set_trace()
 
-    # products = fishbowl.get_products()
-    customers = fishbowl.get_customers_fast(populate_pricing_rules=True,
-        populate_addresses=False)
-    # rules = fishbowl.get_pricing_rules()
-    import ipdb; ipdb.set_trace()
-
-    response = fishbowl.send_request('CustomerNameListRq')
-    return etree.tostring(response)
+        response = fishbowl.send_request('CustomerNameListRq')
+        return etree.tostring(response)
