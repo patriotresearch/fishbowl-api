@@ -101,16 +101,19 @@ class Request(object):
 class Login(Request):
     key_required = False
 
-    def __init__(self, username, password, key=''):
+    def __init__(self, username, password, key='', logout=None):
         Request.__init__(self, key)
         el_rq = self.add_request_element('LoginRq')
-        self.add_elements(el_rq, {
+        data = {
             'IAID': '22',
             'IAName': 'PythonApp',
             'IADescription': 'Connection for Python Wrapper',
             'UserName': username,
             'UserPassword': password,
-        })
+        }
+        if logout:
+            data['Key'] = logout
+        self.add_elements(el_rq, data)
 
 
 class SimpleRequest(Request):
