@@ -156,13 +156,14 @@ class Fishbowl:
         try:
             has_key = self.key
             if has_key:
+                # Unset key first to avoid a loop if the logout request fails.
+                self.key = None
                 logout_xml = xmlrequests.Login(
                     self.username, '', logout=self.key).request
                 logout_response = self.send_message(logout_xml)
             if not self.connected:
                 raise OSError('Not connected')
             self._connected = False
-            self.key = None
             self.stream.close()
             if has_key:
                 check_status(
