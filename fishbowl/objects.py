@@ -290,6 +290,14 @@ class UOM(FishbowlObject):
     }
 
 
+class LocationGroup(FishbowlObject):
+    fields = {
+        'ID': int,
+        'Name': None,
+        'ActiveFlag': fishbowl_boolean,
+    }
+
+
 class Part(FishbowlObject):
     id_field = 'PartID'
     fields = {

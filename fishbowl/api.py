@@ -338,6 +338,20 @@ class Fishbowl:
         return [objects.TaxRate(node) for node in response.iter('TaxRate')]
 
     @require_connected
+    def get_location_groups(self, only_active=True):
+        """
+        Get location groups.
+
+        :returns: A list of :cls:`fishbowl.objects.LocationGroup` objects
+        """
+        location_groups = []
+        for row in self.send_query('SELECT * FROM LOCATIONGROUP'):
+            obj = objects.LocationGroup(row)
+            if not only_active or obj['ActiveFlag']:
+                location_groups.append(obj)
+        return location_groups
+
+    @require_connected
     def get_customers(self, silence_lazy_errors=True):
         """
         Get customers.
