@@ -64,6 +64,7 @@ def require_connected(func):
     @functools.wraps(func)
     def dec(self, *args, **kwargs):
         if not self.connected:
+            logger.error("API method called but Fishbowl is not connected")
             raise OSError('Not connected')
         return func(self, *args, **kwargs)
 
@@ -107,9 +108,14 @@ class Fishbowl:
                 break
             except socket.error as e:
                 msg = getattr(e, 'strerror', None) or e.message
-                logger.error("Fishbowl API connection failure: {}".format(msg))
                 if not retry:
+                    logger.exception(
+                        "Fishbowl API connection failure, giving up"
+                        .format(msg))
                     raise FishbowlConnectionError(msg)
+                logger.warning(
+                    "Fishbowl API connection failure, retrying: {}"
+                    .format(msg))
                 time.sleep(5)
                 retry -= 1
         stream.settimeout(timeout)
@@ -143,8 +149,13 @@ class Fishbowl:
                     check_status(element, allow_none=True)
 
             if not self.key:
-                raise FishbowlError('No login key in response')
+                msg = 'No login key in response'
+                logger.error(msg)
+                raise FishbowlError(msg)
         except Exception:
+            logger.exception(
+                "Unexpected exception while connecting to Fishbowl, closing "
+                "connection")
             self.close(skip_errors=True)
             raise
         self.username = username
@@ -170,6 +181,9 @@ class Fishbowl:
                     logout_response.find('FbiMsgsRs'), expected='1010')
         except Exception:
             if not skip_errors:
+                logger.exception(
+                    "Unexpected error while trying to close the Fishbowl "
+                    "connection")
                 raise
 
     def pack_message(self, msg):
@@ -212,6 +226,7 @@ class Fishbowl:
             except FishbowlError:
                 if silence_errors:
                     return etree.Element('empty')
+                logger.error("Unexpected response status")
                 raise
             if single:
                 if len(root):
@@ -285,6 +300,7 @@ class Fishbowl:
                 msg = 'Connection timeout (after length received)'
             else:
                 msg = 'Connection timeout'
+            logger.exception(msg)
             raise FishbowlTimeoutError(msg)
         response = response.decode(self.encoding)
         logger.debug('Response received:\n' + response)
