@@ -27,14 +27,21 @@ PRICING_RULES_SQL = (
 
 CUSTOMER_GROUP_PRICING_RULES_SQL = (
     'SELECT p.id, p.isactive, product.num, p.patypeid, p.papercent, '
-    'p.pabaseamounttypeid, p.paamount, p.customerincltypeid, p.customerinclid, '
-    'c.id as customerid, ag.name as accountgroupname, c.name as customername '
+    'p.pabaseamounttypeid, p.paamount, p.customerincltypeid, '
+    'p.customerinclid, c.id as customerid, ag.name as accountgroupname, '
+    'c.name as customername '
     'FROM pricingrule p '
     'INNER JOIN product ON p.productinclid = product.id '
     'INNER JOIN accountgroup ag ON p.customerinclid = ag.id '
     'INNER JOIN accountgrouprelation agr ON agr.groupid = ag.id '
     'INNER JOIN customer c ON agr.accountid = c.accountid '
     'WHERE p.productincltypeid = 2 AND p.customerincltypeid = 3')
+
+PRODUCTS_SQL = (
+    'SELECT P.*, PART.STDCOST AS StandardCost, PART.TYPEID as TypeID '
+    '{ci_fields} FROM PRODUCT P '
+    'INNER JOIN PART ON P.PARTID = PART.ID {custom_joins}'
+)
 
 
 def UnicodeDictReader(utf8_data, **kwargs):
@@ -462,11 +469,39 @@ class Fishbowl:
         return products
 
     @require_connected
-    def get_products_fast(self, populate_uoms=True):
+    def get_products_fast(self, populate_uoms=True, custom_bools=None):
+        """
+        Quickly get all products.
+
+        Here is an example of how to use ``Part`` custom fields::
+
+            >>> products = connection.get_products_fast(
+                 custom_bools={'ApiFieldName': 'Fishbowl custom field name'})
+            >>> products[0].part['ApiFieldName']
+            False
+        """
         products = []
         if populate_uoms:
             uom_map = self.get_uom_map()
-        for row in self.send_query('SELECT P.*, PART.STDCOST AS StandardCost, PART.TYPEID as TypeID FROM PRODUCT P INNER JOIN PART ON P.PARTID = PART.ID'):
+
+        # Handle custom fields.
+        custom_fields = {}
+        ci_fields, custom_joins = [], []
+        if custom_bools:
+            for field, name in custom_bools.items():
+                ci_fields.append('CI.INFO AS {}'.format(field))
+                custom_joins.append('''
+LEFT JOIN CUSTOMINTEGER CI ON CI.recordid = PART.ID AND CI.customfieldid = (
+ select customfield.id from customfield
+ inner join tablereference t on customfield.tableid=t.tableid
+ where t.tablerefname='Part' and name='{}')'''.format(name))
+                custom_fields[field] = objects.fishbowl_boolean
+        sql = PRODUCTS_SQL.format(
+            ci_fields=''.join(', ' + ci_field for ci_field in ci_fields),
+            custom_joins=' '.join(custom_joins),
+        )
+
+        for row in self.send_query(sql):
             product = objects.Product(row, name=row.get('NUM'))
             if not product:
                 continue
@@ -476,7 +511,7 @@ class Fishbowl:
                     uom = uom_map.get(int(uomid))
                     if uom:
                         product.mapped['UOM'] = uom
-            product.part = objects.Part(row)
+            product.part = objects.Part(row, custom_fields=custom_fields)
             products.append(product)
         return products
 
@@ -490,6 +525,7 @@ class Fishbowl:
             rules relevant to all customers.
         """
         pricing_rules = {None: []}
+
         def process_rules(data, rules):
             for row in data:
                 customer_type = row.pop('CUSTOMERINCLTYPEID')

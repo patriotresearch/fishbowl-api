@@ -1,4 +1,5 @@
 from __future__ import unicode_literals
+import copy
 import collections
 import sys
 import inspect
@@ -34,13 +35,15 @@ class FishbowlObject(collections.Mapping):
     name_attr = None
     encoding = 'utf-8'
 
-    def __init__(self, data=None, lazy_data=None, name=None):
+    def __init__(
+            self, data=None, lazy_data=None, name=None, custom_fields=None):
         if not (data is None) ^ (lazy_data is None):
             raise AttributeError('Expected either data or lazy_data')
+        self.name = name
+        self.custom_fields = custom_fields
         self._lazy_load = lazy_data
         if data is not None:
-            self.mapped = self.parse_fields(data, self.fields)
-        self.name = name
+            self.mapped = self.parse_fields(data)
 
     def __str__(self):
         if self.name:
@@ -60,16 +63,21 @@ class FishbowlObject(collections.Mapping):
     @property
     def mapped(self):
         if not hasattr(self, '_mapped'):
-            self._mapped = self.parse_fields(self._lazy_load(), self.fields)
+            self._mapped = self.parse_fields(self._lazy_load())
         return self._mapped
 
     @mapped.setter
     def mapped(self, value):
         self._mapped = value
 
-    def parse_fields(self, data, fields):
+    def parse_fields(self, data, fields=None):
         if data is None:
             return {}
+        if fields is None:
+            fields = self.fields
+            if self.custom_fields:
+                fields = copy.deepcopy(fields)
+                fields.update(self.custom_fields)
         if not isinstance(data, dict):
             data = self.get_xml_data(data)
         output = {}
