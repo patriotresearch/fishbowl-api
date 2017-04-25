@@ -375,17 +375,27 @@ class Fishbowl:
         return location_groups
 
     @require_connected
-    def get_customers(self, silence_lazy_errors=True):
+    def get_customers(self, lazy=True, silence_lazy_errors=True):
         """
         Get customers.
 
-        :returns: A list of lazy :cls:`fishbowl.objects.Customer` objects
+        :lazy: Lazily load all customer data when it's requested rather than
+               proload all data in one lump. This will also load in the
+               addresses for each customer which doesn't happen in non-lazy
+               mode (defaults to True).
+        :returns: A list of :cls:`fishbowl.objects.Customer` objects
         """
+        if not lazy:
+            response = self.send_request(
+                'CustomerListRq', response_node_name='CustomerListRs',
+                single=False)
+            return [
+                objects.Customer(node) for node in response.iter('Customer')]
         customers = []
-        request = self.send_request(
+        response = self.send_request(
             'CustomerNameListRq', response_node_name='CustomerNameListRs',
             single=False)
-        for tag in request.iter('Name'):
+        for tag in response.iter('Name'):
             get_customer = partial(
                 self.send_request, 'CustomerGetRq', {'Name': tag.text},
                 response_node_name='CustomerGetRs',
