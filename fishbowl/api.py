@@ -602,6 +602,21 @@ LEFT JOIN CUSTOMINTEGER CI ON CI.recordid = PART.ID AND CI.customfieldid = (
             customers.append(customer)
         return customers
 
+    @require_connected
+    def get_so(self, number):
+        response = self.send_request(
+            'LoadSORq', {'Number': number}, response_node_name='LoadSORs')
+        if response is None or response.tag != 'SalesOrder':
+            return None
+        return objects.SalesOrder(response)
+
+    @require_connected
+    def save_so(self, so):
+        request = xmlrequests.SaveSO(so, key=self.key)
+        response = self.send_message(request)
+        check_status(response.find('FbiMsgsRs'))
+        return objects.SalesOrder(response.find('SalesOrder'))
+
 
 class FishbowlAPI(object):
     """

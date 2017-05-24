@@ -5,6 +5,39 @@ from lxml import etree
 from collections import OrderedDict
 
 import six
+from django.utils.text import force_text
+from fishbowl.objects import FishbowlObject
+
+
+def object_to_xml(obj, name=None):
+    if isinstance(obj, FishbowlObject):
+        return object_to_xml(obj.mapped, name or obj.__class__.__name__)
+    if not name:
+        raise ValueError('Name not provided')
+    element = etree.Element(name)
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            if v is None:
+                continue
+            child = object_to_xml(v, k)
+            element.append(child)
+        return element
+    if isinstance(obj, (list, tuple)):
+        # Guess the name.
+        k = name[:-1] if name[-1] == 's' else name
+        for child_obj in obj:
+            if child_obj is None:
+                continue
+            if isinstance(child_obj, FishbowlObject):
+                # Use the object name rather rather that try to guess.
+                k = None
+            child = object_to_xml(child_obj, k)
+            element.append(child)
+        return element
+    if isinstance(obj, bool):
+        obj = 'true' if obj else 'false'
+    element.text = force_text(obj)
+    return element
 
 
 class Request(object):
@@ -185,6 +218,25 @@ class GetPOList(Request):
             self.add_elements(el_rq, {
                 'LocationGroup': locationgroup,
             })
+
+
+class SaveSO(Request):
+    """
+    <SOSaveRq>
+        (Sales Order Object)
+        <IssueFlag>(boolean)</IssueFlag>
+        <IgnoreItems>(boolean)</IgnoreItems>
+    </SOSaveRq>
+    """
+
+    def __init__(self, so, key=''):
+        Request.__init__(self, key)
+        el_rq = self.add_request_element('SOSaveRq')
+        el_rq.append(object_to_xml(so))
+        self.add_elements(el_rq, OrderedDict([
+            # ('IssueFlag', False),
+            ('IgnoreItems', False),
+        ]))
 
 
 class AddMemo(Request):
