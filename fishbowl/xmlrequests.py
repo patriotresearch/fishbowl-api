@@ -1,5 +1,7 @@
 from __future__ import unicode_literals
 
+import struct
+from hashlib import sha1
 import datetime
 from lxml import etree
 from collections import OrderedDict
@@ -133,14 +135,31 @@ class Request(object):
 
 class Login(Request):
     key_required = False
+    base_iaid = '22'
 
-    def __init__(self, username, password, key='', logout=None):
+    def __init__(
+            self, username, password, key='', logout=None, task_name=None):
         Request.__init__(self, key)
         el_rq = self.add_request_element('LoginRq')
+        iaid = self.base_iaid
+        ianame = 'PythonApp'
+        iadescription = 'Connection for Python Wrapper'
+        if task_name:
+            # Attach the task name to the end of the internal app.
+            ianame = '{} ({})'.format(ianame, task_name)
+            iadescription = '{} ({} task)'.format(iadescription, task_name)
+            # Make a unique internal app id from the hash of the task name.
+            # This uses a namespace of only 100,000 so there is a potential
+            # chance of collisions. unperceivable.
+            iaid = '{}{:>05d}'.format(
+                iaid,
+                struct.unpack('i', sha1(task_name).digest()[:4])[0] % 100000
+            )
+
         data = {
-            'IAID': '22',
-            'IAName': 'PythonApp',
-            'IADescription': 'Connection for Python Wrapper',
+            'IAID': iaid,
+            'IAName': ianame,
+            'IADescription': iadescription,
             'UserName': username,
             'UserPassword': password,
         }

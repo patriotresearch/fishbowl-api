@@ -94,9 +94,11 @@ class Fishbowl:
     host = 'localhost'
     port = 28192
     encoding = 'latin-1'
+    login_timeout = 3
 
-    def __init__(self):
+    def __init__(self, task_name=None):
         self._connected = False
+        self.task_name = task_name
 
     @property
     def connected(self):
@@ -109,7 +111,7 @@ class Fishbowl:
         logger.info('Connecting to {}:{}'.format(self.host, self.port))
         while True:
             stream = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            stream.settimeout(3)  # Hard code the connection timeout at 3s
+            stream.settimeout(self.login_timeout)
             try:
                 stream.connect((self.host, self.port))
                 break
@@ -146,7 +148,8 @@ class Fishbowl:
 
         try:
             self.key = None
-            login_xml = xmlrequests.Login(username, password).request
+            login_xml = xmlrequests.Login(
+                username, password, task_name=self.task_name).request
             response = self.send_message(login_xml)
             # parse xml, grab api key, check status
             for element in response.iter():
@@ -292,7 +295,9 @@ class Fishbowl:
         response = bytearray()
         received_length = False
         try:
-            packed_length = self.stream.recv(4)
+            packed_length = ''
+            while len(packed_length) < 4:
+                packed_length += self.stream.recv(4-len(packed_length))
             length = struct.unpack('>L', packed_length)[0]
             received_length = True
             while byte_count < length:
@@ -637,17 +642,18 @@ class FishbowlAPI(object):
             process_products(products)
     """
 
-    def __init__(self, **connection_args):
+    def __init__(self, task_name=None, **connection_args):
+        self.task_name = task_name
         self.connection_args = connection_args
 
     def __enter__(self):
-        self.fb = Fishbowl()
+        self.fb = Fishbowl(task_name=self.task_name)
         self.fb.connect(**self.connection_args)
         return self.fb
 
     def __exit__(self, exc_type, exc_value, traceback):
         """
-        Close the connection, but only show any errors while attepmting this if
+        Close the connection, but only show any errors while attempting this if
         the context didn't raise an exception.
         """
         self.fb.close(skip_errors=bool(traceback))
