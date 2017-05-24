@@ -56,6 +56,33 @@ class APIStreamTest(TestCase):
         fake_socket.settimeout.assert_called_with(5)
 
 
+class APITaskNameTest(TestCase):
+
+    def test_task_name(self):
+        fake_stream = mock.MagicMock()
+        fb = api.Fishbowl(task_name='test')
+        fb.make_stream = mock.Mock(return_value=fake_stream)
+        fb.send_message = mock.Mock(
+            return_value=etree.fromstring(LOGIN_SUCCESS))
+        fb.connect(
+            username='test', password='password', host='localhost', port=28192)
+        self.assertEqual(fb.send_message.call_args[0][0], '''<FbiXml>
+  <Ticket>
+    <Key></Key>
+  </Ticket>
+  <FbiMsgsRq>
+    <LoginRq>
+      <UserName>test</UserName>
+      <IAName>PythonApp (test)</IAName>
+      <UserPassword>X03MO1qnZdYdgyfeuILPmQ==</UserPassword>
+      <IAID>2205929</IAID>
+      <IADescription>Connection for Python Wrapper (test task)</IADescription>
+    </LoginRq>
+  </FbiMsgsRq>
+</FbiXml>
+''')
+
+
 class APITest(TestCase):
 
     def setUp(self):
@@ -65,7 +92,7 @@ class APITest(TestCase):
         self.api.make_stream = mock.Mock(return_value=self.fake_stream)
 
     def connect(self, login_return_value=LOGIN_SUCCESS, **kwargs):
-        connect_kwargs = {'host': 'localhost', 'port': 28193}
+        connect_kwargs = {'host': 'localhost', 'port': 28192}
         connect_kwargs.update(kwargs)
         self.api.send_message = mock.Mock(
             return_value=etree.fromstring(login_return_value))
