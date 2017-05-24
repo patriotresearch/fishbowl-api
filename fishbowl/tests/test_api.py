@@ -18,6 +18,13 @@ LOGIN_SUCCESS = '''
 </FbiXml>
 '''.format(statuscodes.SUCCESS).encode('ascii')
 
+LOGOUT_XML = '''
+<FbiXml>
+<Ticket><Key>ABC</Key></Ticket>
+<FbiMsgsRs statusCode="1010"/>
+</FbiXml>
+'''
+
 ADD_INVENTORY_XML = '''
 <FbiXml>
 <AddInventoryRs statusCode="{}"></AddInventoryRs>
@@ -54,12 +61,16 @@ class APITest(TestCase):
     def setUp(self):
         self.api = api.Fishbowl()
         self.fake_stream = mock.MagicMock()
+        # self.fake_stream.recv.return_value = '\0'
         self.api.make_stream = mock.Mock(return_value=self.fake_stream)
 
     def connect(self, login_return_value=LOGIN_SUCCESS, **kwargs):
+        connect_kwargs = {'host': 'localhost', 'port': 28193}
+        connect_kwargs.update(kwargs)
         self.api.send_message = mock.Mock(
             return_value=etree.fromstring(login_return_value))
-        self.api.connect(username='test', password='password', **kwargs)
+        self.api.connect(
+            username='test', password='password', **connect_kwargs)
         del self.api.send_message
 
     def test_connect(self):
@@ -68,7 +79,9 @@ class APITest(TestCase):
         self.assertTrue(self.api.make_stream.called)
         self.assertTrue(self.api.connected)
 
-        self.api.close()
+        with mock.patch.object(self.api, 'send_message') as mock_message:
+            mock_message.return_value = etree.fromstring(LOGOUT_XML)
+            self.api.close()
         self.assertTrue(self.fake_stream.close.called)
         self.assertFalse(self.api.connected)
 
@@ -81,13 +94,17 @@ class APITest(TestCase):
     def test_bad_close(self):
         self.connect()
         self.fake_stream.close.side_effect = ValueError()
-        self.assertRaises(ValueError, self.api.close)
+        with mock.patch.object(self.api, 'send_message') as mock_message:
+            mock_message.return_value = etree.fromstring(LOGOUT_XML)
+            self.assertRaises(ValueError, self.api.close)
         self.assertFalse(self.api.connected)
 
     def test_bad_close_silent(self):
         self.connect()
         self.fake_stream.close.side_effect = ValueError()
-        self.api.close(skip_errors=True)
+        with mock.patch.object(self.api, 'send_message') as mock_message:
+            mock_message.return_value = etree.fromstring(LOGOUT_XML)
+            self.api.close(skip_errors=True)
         self.assertFalse(self.api.connected)
 
     def test_reconnect(self):
@@ -98,8 +115,9 @@ class APITest(TestCase):
 
         self.assertFalse(self.fake_stream.close.called)
         self.api.make_stream.reset_mock()
-        self.connect()
-        self.assertTrue(self.fake_stream.close.called)
+        with mock.patch.object(self.api, 'close') as mock_close:
+            self.connect()
+            self.assertTrue(mock_close.called)
         self.assertTrue(self.api.make_stream.called)
         self.assertTrue(self.api.connected)
 
