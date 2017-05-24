@@ -14,12 +14,18 @@ def fishbowl_datetime(text):
     return datetime.strptime(text, '%Y-%m-%dT%H:%M:%S')
 
 
+fishbowl_datetime.type = datetime.datetime
+
+
 def fishbowl_boolean(text):
     if not text:
         return False
     if text.lower() in ('0', 'false', 'f'):
         return False
     return True
+
+
+fishbowl_boolean.type = bool
 
 
 def all_fishbowl_objects():
@@ -155,6 +161,17 @@ class FishbowlObject(collections.Mapping):
 
     def __getitem__(self, key):
         return self.mapped[key]
+
+    def __setitem__(self, key, value):
+        if key not in self.fields:
+            raise KeyError('No field named {}'.format(key))
+        expected_type = self.fields[key]
+        expected_type = getattr(expected_type, 'type', expected_type)
+        if expected_type is None:
+            expected_type = six.text_type
+        if not isinstance(value, expected_type):
+            raise ValueError('Value was not type {}'.format(expected_type))
+        self.mapped[key] = value
 
     def __iter__(self):
         return iter(self.mapped)
