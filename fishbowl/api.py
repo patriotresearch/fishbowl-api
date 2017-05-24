@@ -175,7 +175,7 @@ class Fishbowl:
         Close connection to Fishbowl API.
         """
         try:
-            has_key = self.key
+            has_key = getattr(self, 'key', None)
             if has_key:
                 # Unset key first to avoid a loop if the logout request fails.
                 self.key = None
