@@ -333,6 +333,42 @@ class Fishbowl:
                 for val in ['add_inv', partnum, qty, uomid, cost, loctagnum]]))
 
     @require_connected
+    def get_part_info(self, partnum):
+        """
+        Returns all information relating to a part
+        """
+        request = xmlrequests.InventoryQuantity(
+            partnum, key=self.key)
+        return self.send_message(request)
+
+    @require_connected
+    def get_total_inventory(self, partnum, locationid):
+        """
+        Returns total inventory count at specified location
+        """
+        request = xmlrequests.GetTotalInventory(
+            partnum,
+            locationgroup,
+            key=self.key
+        )
+        return self.send_message(request)
+
+    @require_connected
+    def get_locations(self, partnum, locationgroup=None):
+        """
+        Returns locations of the specified part
+        """
+        response = self.get_part_info(partnum)
+        if locationgroup is not None:
+            locations = [(
+                item[1][2].text,
+                item[1][3].text
+            ) for item in response[1][0] if item[1][9].text == locationgroup]
+        else:
+            locations = [(item[1][2].text, item[1][3].text) for item in response[1][0]]
+        return locations
+
+    @require_connected
     def cycle_inventory(self, partnum, qty, locationid):
         """
         Cycle inventory of part in Fishbowl.

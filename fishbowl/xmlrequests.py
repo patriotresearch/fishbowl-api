@@ -153,7 +153,7 @@ class Login(Request):
             # chance of collisions. unperceivable.
             iaid = '{}{:>05d}'.format(
                 iaid,
-                struct.unpack('i', sha1(task_name).digest()[:4])[0] % 100000
+                struct.unpack('i', sha1(task_name.encode('utf-8')).digest()[:4])[0] % 100000
             )
 
         data = {
@@ -237,6 +237,28 @@ class GetPOList(Request):
             self.add_elements(el_rq, {
                 'LocationGroup': locationgroup,
             })
+
+
+class InventoryQuantity(Request):
+
+    def __init__(self, partnum=None, key=''):
+        Request.__init__(self, key)
+        el_rq = self.add_request_element('InvQtyRq')
+        if partnum is not None:
+            self.add_elements(el_rq, {
+                'PartNum': partnum,
+            })
+
+
+class GetTotalInventory(Request):
+
+    def __init__(self, partnum, locationgroup):
+        Request.__init__(self, key)
+        el_rq = self.add_request_element('GetTotalInventoryRq')
+        self.add_elements(el_rq, {
+            'PartNumber': partnum,
+            'LocationGroup': locationgroup
+        })
 
 
 class SaveSO(Request):
