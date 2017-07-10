@@ -272,6 +272,7 @@ class Address(FishbowlObject):
 
 
 class Customer(FishbowlObject):
+    id_field = 'CustomerID'
     fields = OrderedDict([
         ('CustomerID', int),
         ('AccountID', int),
