@@ -158,16 +158,41 @@ class APITest(TestCase):
     def test_required_connected_method(self):
         self.assertRaises(OSError, self.api.close)
 
-    def set_response_xml(self, response_xml):
-        self.fake_stream.recv.side_effect = [
-            struct.pack('>L', len(response_xml))
-        ] + list(response_xml)
+    def set_response_xml(self, response_xml, staggered=False):
+        response = []
+        length = struct.pack('>L', len(response_xml))
+        if staggered:
+            response.append(length[:1])
+            response.append(length[1:3])
+            response.append(length[3:])
+        else:
+            response.append(length)
+        response.extend(list(response_xml))
+        self.fake_stream.recv.side_effect = response
 
     def test_send_message(self):
         self.connect()
         request_xml = b'<test></test>'
         response_xml = b'<FbiXml><FbiMsgsRq/></FbiXml>'
         self.set_response_xml(response_xml)
+        self.fake_stream.recv.side_effect = [
+            struct.pack('>L', len(response_xml))
+        ] + list(response_xml)
+        response = self.api.send_message(request_xml)
+        self.assertEqual(etree.tostring(response), response_xml)
+        self.fake_stream.send.assert_called_with(
+            struct.pack('>L', len(request_xml)) + request_xml)
+
+    def test_send_message_response_staggered(self):
+        self.connect()
+        request_xml = b'<test></test>'
+        # After a length of 223 for testing a specific packed length that fails
+        response_xml = b'<FbiXml><FbiMsgsRqXX/>'   # 22
+        for i in range(24):   # 24 * 8 = 192
+            response_xml += b'<eight/>'  # 8
+        response_xml += b'</FbiXml>'  # 9
+        # 22 + 192 + 9 = 223
+        self.set_response_xml(response_xml, staggered=True)
         self.fake_stream.recv.side_effect = [
             struct.pack('>L', len(response_xml))
         ] + list(response_xml)

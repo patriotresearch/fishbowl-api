@@ -295,7 +295,7 @@ class Fishbowl:
         response = bytearray()
         received_length = False
         try:
-            packed_length = ''
+            packed_length = b''
             while len(packed_length) < 4:
                 packed_length += self.stream.recv(4-len(packed_length))
             length = struct.unpack('>L', packed_length)[0]
