@@ -180,7 +180,7 @@ class Fishbowl:
                 # Unset key first to avoid a loop if the logout request fails.
                 self.key = None
                 logout_xml = xmlrequests.Login(
-                    self.username, '', logout=self.key).request
+                    self.username, '', logout=self.key, task_name=self.task_name).request
                 logout_response = self.send_message(logout_xml)
             if not self.connected:
                 raise OSError('Not connected')
