@@ -295,15 +295,13 @@ class Fishbowl:
         response = bytearray()
         received_length = False
         try:
-            packed_length = ''
+            packed_length = b''
             while len(packed_length) < 4:
                 packed_length += self.stream.recv(4-len(packed_length))
             length = struct.unpack('>L', packed_length)[0]
             received_length = True
             while byte_count < length:
-                byte = self.stream.recv(1)
-                if sys.version_info < (3,):
-                    byte = ord(byte)
+                byte = ord(self.stream.recv(1))
                 byte_count += 1
                 response.append(byte)
         except socket.timeout:
@@ -359,13 +357,26 @@ class Fishbowl:
         Returns locations of the specified part
         """
         response = self.get_part_info(partnum)
-        if locationgroup is not None:
-            locations = [(
-                item[1][2].text,
-                item[1][3].text
-            ) for item in response[1][0] if item[1][9].text == locationgroup]
+        if locationgroup:
+            locations = []
+            for item in response[1][0]:
+                print(next(item[1].iterfind('./LocationGroupName')).text)
+                if next(item[1].iterfind('./LocationGroupName')).text == locationgroup:
+                    locations.append({
+                        'location': item[1][0].text,
+                        'location_name': item[1][2].text,
+                        'description': item[1][3].text,
+                        'available_quantity': int(item[3].text),
+                        'total_quantity': int(item[2].text),
+                    })
         else:
-            locations = [(item[1][2].text, item[1][3].text) for item in response[1][0]]
+            locations = [{
+                'location': item[1][0].text,
+                'location_name': item[1][2].text,
+                'description': item[1][3].text,
+                'available_quantity': int(item[3].text),
+                'total_quantity': int(item[2].text),
+            } for item in response[1][0]]
         return locations
 
     @require_connected
@@ -373,6 +384,7 @@ class Fishbowl:
         """
         Cycle inventory of part in Fishbowl.
         """
+        print(qty)
         request = xmlrequests.CycleCount(
             partnum, qty, locationid, key=self.key)
         response = self.send_message(request)
@@ -692,7 +704,10 @@ class FishbowlAPI(object):
         Close the connection, but only show any errors while attempting this if
         the context didn't raise an exception.
         """
-        self.fb.close(skip_errors=bool(traceback))
+        try:
+            self.fb.close(skip_errors=bool(traceback))
+        except FishbowlTimeoutError:
+            pass
 
 
 def check_status(element, expected=statuscodes.SUCCESS, allow_none=False):

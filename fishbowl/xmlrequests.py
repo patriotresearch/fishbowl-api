@@ -219,13 +219,14 @@ class AddInventory(Request):
 class CycleCount(Request):
 
     def __init__(self, partnum, qty, locationid, tracking='', key=''):
+        print(qty)
         Request.__init__(self, key)
         el_rq = self.add_request_element('CycleCountRq')
-        self.add_elements(el_rq, {
-            'PartNum': partnum,
-            'Quantity': qty,
-            'LocationID': locationid,
-        })
+        self.add_elements(el_rq, OrderedDict([
+            ('PartNum', partnum),
+            ('Quantity', qty),
+            ('LocationID', locationid),
+        ]))
 
 
 class GetPOList(Request):
