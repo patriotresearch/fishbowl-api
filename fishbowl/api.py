@@ -360,7 +360,6 @@ class Fishbowl:
         if locationgroup:
             locations = []
             for item in response[1][0]:
-                print(next(item[1].iterfind('./LocationGroupName')).text)
                 if next(item[1].iterfind('./LocationGroupName')).text == locationgroup:
                     locations.append({
                         'location': item[1][0].text,
@@ -384,7 +383,6 @@ class Fishbowl:
         """
         Cycle inventory of part in Fishbowl.
         """
-        print(qty)
         request = xmlrequests.CycleCount(
             partnum, qty, locationid, key=self.key)
         response = self.send_message(request)
