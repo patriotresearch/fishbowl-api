@@ -665,8 +665,9 @@ LEFT JOIN CUSTOMINTEGER CI ON CI.recordid = PART.ID AND CI.customfieldid = (
     def save_so(self, so):
         request = xmlrequests.SaveSO(so, key=self.key)
         response = self.send_message(request)
+        # print etree.tostring(response)
         check_status(response.find('FbiMsgsRs'))
-        return objects.SalesOrder(response.find('SalesOrder'))
+        return objects.SalesOrder(response.find('.//SalesOrder'))
 
 
 class FishbowlAPI(object):

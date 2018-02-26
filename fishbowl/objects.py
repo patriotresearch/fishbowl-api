@@ -142,7 +142,7 @@ class FishbowlObject(collections.Mapping):
             if six.PY2:
                 key = key.encode(self.encoding)
             if children:
-                if [el for el in child if el.text.strip()]:
+                if [el for el in child if el.text and el.text.strip()]:
                     data[key] = self.get_xml_data(child)
                 else:
                     inner = []
@@ -167,8 +167,13 @@ class FishbowlObject(collections.Mapping):
             raise KeyError('No field named {}'.format(key))
         expected_type = self.fields[key]
         expected_type = getattr(expected_type, 'type', expected_type)
+
         if expected_type is None:
             expected_type = six.text_type
+
+        if not inspect.isclass(expected_type):
+            expected_type = expected_type.__class__
+
         if not isinstance(value, expected_type):
             raise ValueError('Value was not type {}'.format(expected_type))
         self.mapped[key] = value
