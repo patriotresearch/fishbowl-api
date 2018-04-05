@@ -419,6 +419,7 @@ class SalesOrderItem(FishbowlObject):
         ('RevisionLevel', int),
         ('TotalCost', decimal.Decimal),
         ('TaxableFlag', fishbowl_boolean),
+        ('Note', None)
     ])
 
 
