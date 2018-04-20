@@ -11,19 +11,23 @@ import six
 
 
 def fishbowl_datetime(text):
-    return datetime.strptime(text, '%Y-%m-%dT%H:%M:%S')
-
+    if isinstance(text, str):
+        return datetime.datetime.strptime(text, '%Y-%m-%dT%H:%M:%S')
+    elif isinstance(text, datetime.datetime):
+        return text.strftime('%Y-%m-%dT%H:%M:%S')
 
 fishbowl_datetime.type = datetime.datetime
 
 
 def fishbowl_boolean(text):
-    if not text:
-        return False
-    if text.lower() in ('0', 'false', 'f'):
-        return False
-    return True
-
+    if isinstance(text, str):
+        if not text:
+            return False
+        if text.lower() in ('0', 'false', 'f'):
+            return False
+        return True
+    elif isinstance(text, bool):
+        return 'true' if text else 'false'
 
 fishbowl_boolean.type = bool
 
@@ -397,8 +401,8 @@ class SalesOrderItem(FishbowlObject):
         ('CustomerPartNum', None),
         ('Taxable', fishbowl_boolean),
         ('Quantity', int),
-        ('ProductPrice', int),
-        ('TotalPrice', int),
+        ('ProductPrice', decimal.Decimal),
+        ('TotalPrice', decimal.Decimal),
         ('UOMCode', None),
         ('ItemType', int),
         ('Status', int),
