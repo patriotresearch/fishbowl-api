@@ -14,7 +14,7 @@ class XMLRequestsTest(TestCase):
 
     def test_add_unicode(self):
         r = TestRequest()
-        r.add_elements(r.el_request, [('test', '\u2022')])
+        r.add_elements(r.el_request, [("test", "\u2022")])
         self.assertEqual(
-            etree.tostring(r.el_request),
-            b'<FbiMsgsRq><test>&#8226;</test></FbiMsgsRq>')
+            etree.tostring(r.el_request), b"<FbiMsgsRq><test>&#8226;</test></FbiMsgsRq>"
+        )

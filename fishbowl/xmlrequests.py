@@ -7,44 +7,38 @@ import datetime
 from lxml import etree
 from collections import OrderedDict
 
-import six
 from fishbowl.objects import FishbowlObject
 
 
-_PROTECTED_TYPES = six.integer_types + (type(None), float, Decimal,
-                                        datetime.datetime, datetime.date, datetime.time)
+_PROTECTED_TYPES = (
+    type(None),
+    int,
+    float,
+    Decimal,
+    datetime.datetime,
+    datetime.date,
+    datetime.time,
+)
 
 
-def force_text(s, encoding='utf-8', strings_only=False, errors='strict'):
+def force_str(s, encoding="utf-8", strings_only=False, errors="strict"):
     """
-    Modified from Django 1.8: django.utils.encoding.force_text
-    Similar to smart_text, except that lazy instances are resolved to
+    Modified from Django 3.0: django.utils.encoding.force_str
+    Similar to smart_str(), except that lazy instances are resolved to
     strings, rather than kept as lazy objects.
-
     If strings_only is True, don't convert (some) non-string-like objects.
     """
     # Handle the common case first for performance reasons.
-    if isinstance(s, six.text_type):
+    if issubclass(type(s), str):
         return s
     if strings_only and isinstance(s, _PROTECTED_TYPES):
         return s
     try:
-        if not isinstance(s, six.string_types):
-            if six.PY3:
-                if isinstance(s, bytes):
-                    s = six.text_type(s, encoding, errors)
-                else:
-                    s = six.text_type(s)
-            elif hasattr(s, '__unicode__'):
-                s = six.text_type(s)
-            else:
-                s = six.text_type(bytes(s), encoding, errors)
+        if isinstance(s, bytes):
+            s = str(s, encoding, errors)
         else:
-            # Note: We use .decode() here, instead of six.text_type(s, encoding,
-            # errors), so that if s is a SafeBytes, it ends up being a
-            # SafeText at the end.
-            s = s.decode(encoding, errors)
-    except UnicodeDecodeError:
+            s = str(s)
+    except UnicodeDecodeError as e:
         if not isinstance(s, Exception):
             raise
         else:
@@ -53,8 +47,7 @@ def force_text(s, encoding='utf-8', strings_only=False, errors='strict'):
             # working unicode method. Try to handle this without raising a
             # further exception by individually forcing the exception args
             # to unicode.
-            s = ' '.join(force_text(arg, encoding, strings_only, errors)
-                         for arg in s)
+            s = " ".join(force_str(arg, encoding, strings_only, errors) for arg in s)
     return s
 
 
@@ -62,7 +55,7 @@ def object_to_xml(obj, name=None):
     if isinstance(obj, FishbowlObject):
         return object_to_xml(obj.mapped, name or obj.__class__.__name__)
     if not name:
-        raise ValueError('Name not provided')
+        raise ValueError("Name not provided")
     element = etree.Element(name)
     if isinstance(obj, dict):
         for k, v in obj.items():
@@ -73,7 +66,7 @@ def object_to_xml(obj, name=None):
         return element
     if isinstance(obj, (list, tuple)):
         # Guess the name.
-        k = name[:-1] if name[-1] == 's' else name
+        k = name[:-1] if name[-1] == "s" else name
         for child_obj in obj:
             if child_obj is None:
                 continue
@@ -84,24 +77,25 @@ def object_to_xml(obj, name=None):
             element.append(child)
         return element
     if isinstance(obj, bool):
-        obj = 'true' if obj else 'false'
-    element.text = force_text(obj)
+        obj = "true" if obj else "false"
+    element.text = force_str(obj)
     return element
 
 
-class Request(object):
+class Request:
     key_required = True
 
-    def __init__(self, key=''):
+    def __init__(self, key=""):
         if self.key_required and not key:
             raise TypeError(
                 "An API key was not provided (not enough arguments for {0} "
-                "request)".format(self.__class__.__name__))
-        self.el_root = etree.Element('FbiXml')
-        el_ticket = etree.SubElement(self.el_root, 'Ticket')
-        el_key = etree.SubElement(el_ticket, 'Key')
+                "request)".format(self.__class__.__name__)
+            )
+        self.el_root = etree.Element("FbiXml")
+        el_ticket = etree.SubElement(self.el_root, "Ticket")
+        el_key = etree.SubElement(el_ticket, "Key")
         el_key.text = key
-        self.el_request = etree.SubElement(self.el_root, 'FbiMsgsRq')
+        self.el_request = etree.SubElement(self.el_root, "FbiMsgsRq")
 
     @property
     def request(self):
@@ -116,7 +110,7 @@ class Request(object):
                 if isinstance(value, datetime.datetime):
                     value = value.strftime("%Y-%m-%dT%H:%M:%S")
                 else:
-                    value = '%s' % value
+                    value = "%s" % value
                 el.text = value
 
     def add_request_element(self, name):
@@ -157,7 +151,7 @@ class Request(object):
         self._add_data(self.el_request, {name: data})
 
     def _add_data(self, el, data):
-        for k, v in six.iteritems(data):
+        for k, v in data.items():
             child = etree.SubElement(el, k)
             if isinstance(v, (tuple, list)):
                 for inner_data in v:
@@ -174,50 +168,47 @@ class Request(object):
         Returns a data value formatted as text.
         """
         if isinstance(value, bool):
-            value = 'true' if value else 'false'
+            value = "true" if value else "false"
         elif isinstance(value, datetime.datetime):
-            value = value.strftime('%Y-%m-%dT%H:%M:%S')
-        return '%s' % value
+            value = value.strftime("%Y-%m-%dT%H:%M:%S")
+        return "%s" % value
 
 
 class Login(Request):
     key_required = False
-    base_iaid = '22'
+    base_iaid = "22"
 
-    def __init__(
-            self, username, password, key='', logout=None, task_name=None):
+    def __init__(self, username, password, key="", logout=None, task_name=None):
         Request.__init__(self, key)
-        el_rq = self.add_request_element('LoginRq')
+        el_rq = self.add_request_element("LoginRq")
         iaid = self.base_iaid
-        ianame = 'PythonApp'
-        iadescription = 'Connection for Python Wrapper'
+        ianame = "PythonApp"
+        iadescription = "Connection for Python Wrapper"
         if task_name:
             # Attach the task name to the end of the internal app.
-            ianame = '{} ({})'.format(ianame, task_name)
-            iadescription = '{} ({} task)'.format(iadescription, task_name)
+            ianame = "{} ({})".format(ianame, task_name)
+            iadescription = "{} ({} task)".format(iadescription, task_name)
             # Make a unique internal app id from the hash of the task name.
             # This uses a namespace of only 100,000 so there is a potential
             # chance of collisions. unperceivable.
-            iaid = '{}{:>05d}'.format(
-                iaid,
-                struct.unpack('i', sha1(task_name.encode('utf-8')).digest()[:4])[0] % 100000
+            iaid = "{}{:>05d}".format(
+                iaid, struct.unpack("i", sha1(task_name.encode("utf-8")).digest()[:4])[0] % 100000,
             )
 
         data = {
-            'IAID': iaid,
-            'IAName': ianame,
-            'IADescription': iadescription,
-            'UserName': username,
-            'UserPassword': password,
+            "IAID": iaid,
+            "IAName": ianame,
+            "IADescription": iadescription,
+            "UserName": username,
+            "UserPassword": password,
         }
         if logout:
-            data['Key'] = logout
+            data["Key"] = logout
         self.add_elements(el_rq, data)
 
 
 class SimpleRequest(Request):
-
-    def __init__(self, request_name, value=None, key=''):
+    def __init__(self, request_name, value=None, key=""):
         Request.__init__(self, key)
         el = self.add_request_element(request_name)
         if value is not None:
@@ -228,12 +219,11 @@ class SimpleRequest(Request):
 
 
 class ImportRequest(Request):
-
-    def __init__(self, request_type, value=None, key=''):
+    def __init__(self, request_type, value=None, key=""):
         Request.__init__(self, key)
-        el = self.add_request_element('ImportRq')
-        self.add_elements(el, [('Type', request_type)])
-        self.el_rows = etree.SubElement(el, 'Rows')
+        el = self.add_request_element("ImportRq")
+        self.add_elements(el, [("Type", request_type)])
+        self.el_rows = etree.SubElement(el, "Rows")
         if value:
             self.add_rows(value)
 
@@ -241,71 +231,59 @@ class ImportRequest(Request):
         self.add_rows([row])
 
     def add_rows(self, rows):
-        self.add_elements(self.el_rows, [('Row', row) for row in rows])
+        self.add_elements(self.el_rows, [("Row", row) for row in rows])
 
 
 class AddInventory(Request):
-
-    def __init__(
-            self, partnum, qty, uomid, cost, loctagnum, note='', tracking='',
-            key=''):
+    def __init__(self, partnum, qty, uomid, cost, loctagnum, note="", tracking="", key=""):
         Request.__init__(self, key)
-        el_rq = self.add_request_element('AddInventoryRq')
-        self.add_elements(el_rq, {
-            'PartNum': partnum,
-            'Quantity': qty,
-            'UOMID': uomid,
-            'Cost': cost,
-            'Note': note,
-            'Tracking': tracking,
-            'LocationTagNum': loctagnum,
-            'TagNum': '0',
-        })
+        el_rq = self.add_request_element("AddInventoryRq")
+        self.add_elements(
+            el_rq,
+            {
+                "PartNum": partnum,
+                "Quantity": qty,
+                "UOMID": uomid,
+                "Cost": cost,
+                "Note": note,
+                "Tracking": tracking,
+                "LocationTagNum": loctagnum,
+                "TagNum": "0",
+            },
+        )
 
 
 class CycleCount(Request):
-
-    def __init__(self, partnum, qty, locationid, tracking='', key=''):
+    def __init__(self, partnum, qty, locationid, tracking="", key=""):
         Request.__init__(self, key)
-        el_rq = self.add_request_element('CycleCountRq')
-        self.add_elements(el_rq, OrderedDict([
-            ('PartNum', partnum),
-            ('Quantity', qty),
-            ('LocationID', locationid),
-        ]))
+        el_rq = self.add_request_element("CycleCountRq")
+        self.add_elements(
+            el_rq,
+            OrderedDict([("PartNum", partnum), ("Quantity", qty), ("LocationID", locationid),]),
+        )
 
 
 class GetPOList(Request):
-
-    def __init__(self, locationgroup=None, key=''):
+    def __init__(self, locationgroup=None, key=""):
         Request.__init__(self, key)
-        el_rq = self.add_request_element('GetPOListRq')
+        el_rq = self.add_request_element("GetPOListRq")
         if locationgroup is not None:
-            self.add_elements(el_rq, {
-                'LocationGroup': locationgroup,
-            })
+            self.add_elements(el_rq, {"LocationGroup": locationgroup,})
 
 
 class InventoryQuantity(Request):
-
-    def __init__(self, partnum=None, key=''):
+    def __init__(self, partnum=None, key=""):
         Request.__init__(self, key)
-        el_rq = self.add_request_element('InvQtyRq')
+        el_rq = self.add_request_element("InvQtyRq")
         if partnum is not None:
-            self.add_elements(el_rq, {
-                'PartNum': partnum,
-            })
+            self.add_elements(el_rq, {"PartNum": partnum,})
 
 
 class GetTotalInventory(Request):
-
     def __init__(self, partnum, locationgroup):
         Request.__init__(self, key)
-        el_rq = self.add_request_element('GetTotalInventoryRq')
-        self.add_elements(el_rq, {
-            'PartNumber': partnum,
-            'LocationGroup': locationgroup
-        })
+        el_rq = self.add_request_element("GetTotalInventoryRq")
+        self.add_elements(el_rq, {"PartNumber": partnum, "LocationGroup": locationgroup})
 
 
 class SaveSO(Request):
@@ -317,37 +295,52 @@ class SaveSO(Request):
     </SOSaveRq>
     """
 
-    def __init__(self, so, key=''):
+    def __init__(self, so, key=""):
         Request.__init__(self, key)
-        el_rq = self.add_request_element('SOSaveRq')
+        el_rq = self.add_request_element("SOSaveRq")
         el_rq.append(object_to_xml(so))
-        self.add_elements(el_rq, OrderedDict([
-            # ('IssueFlag', False),
-            ('IgnoreItems', False),
-        ]))
+        self.add_elements(
+            el_rq,
+            OrderedDict(
+                [
+                    # ('IssueFlag', False),
+                    ("IgnoreItems", False),
+                ]
+            ),
+        )
 
 
 class AddMemo(Request):
     item_types = (
-        'Part', 'Product', 'Customer', 'Vendor', 'SO', 'PO', 'TO', 'MO',
-        'RMA', 'BOM')
+        "Part",
+        "Product",
+        "Customer",
+        "Vendor",
+        "SO",
+        "PO",
+        "TO",
+        "MO",
+        "RMA",
+        "BOM",
+    )
 
-    def __init__(self, item_type, item_num, memo, username='', key=''):
+    def __init__(self, item_type, item_num, memo, username="", key=""):
         Request.__init__(self, key)
         if item_type not in self.item_types:
-            raise TypeError(
-                "{} is not a valid memo item type".format(item_type))
+            raise TypeError("{} is not a valid memo item type".format(item_type))
         # Use the correct node name for the item number type (falling back to
         # OrderNum for everything else).
-        if item_type in ('Part', 'Product', 'Customer', 'Vendor'):
-            num_attr = '{}Num'.format(item_type)
+        if item_type in ("Part", "Product", "Customer", "Vendor"):
+            num_attr = "{}Num".format(item_type)
         else:
-            num_attr = 'OrderNum'
-        self.add_data('AddMemoRq', OrderedDict([
-            ('ItemType', item_type),
-            (num_attr, item_num),
-            ('Memo', OrderedDict([
-                ('Memo', memo),
-                ('UserName', username),
-            ])),
-        ]))
+            num_attr = "OrderNum"
+        self.add_data(
+            "AddMemoRq",
+            OrderedDict(
+                [
+                    ("ItemType", item_type),
+                    (num_attr, item_num),
+                    ("Memo", OrderedDict([("Memo", memo), ("UserName", username),])),
+                ]
+            ),
+        )

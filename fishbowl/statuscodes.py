@@ -205,4 +205,4 @@ CODES = {
 
 
 def get_status(code):
-    return CODES.get('{}'.format(code), "Unknown status ({})".format(code))
+    return CODES.get("{}".format(code), "Unknown status ({})".format(code))

@@ -3,4 +3,6 @@
 .coverage
 fishbowl.log
 fishbowl/fishbowl.ini
-
+.venv
+.vscode
+*.egg-info

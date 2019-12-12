@@ -1,0 +1,19 @@
+[tool.black]
+target-version = ['py37']
+line-length = 99
+exclude = '''
+(
+  /(
+    | \.git          # root of the project
+    | \.mypy_cache
+    | \.tox
+    | \.venv
+    | \.vscode
+    | fishbowl_api.egg-info
+    | _build
+    | build
+    | dist
+  )/
+                     # the root of the project
+)
+'''
