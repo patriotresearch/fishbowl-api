@@ -47,6 +47,13 @@ PRODUCTS_SQL = (
 )
 
 
+PARTS_SQL = (
+    "SELECT id, num, stdCost as StandardCost, description, typeID, "
+    "dateLastModified, dateCreated, len, serializedFlag "
+    "FROM Part"
+)
+
+
 def UnicodeDictReader(utf8_data, **kwargs):
     csv_reader = csv.DictReader(utf8_data, **kwargs)
     for row in csv_reader:
@@ -481,6 +488,19 @@ class Fishbowl:
                 uom = uom_map.get(uomid)
                 if uom:
                     part.mapped["UOM"] = uom
+        return parts
+
+    @require_connected
+    def get_parts_all(self):
+        parts = []
+
+        for row in self.send_query(PARTS_SQL):
+            part = objects.Part(row)
+            if not part:
+                continue
+
+            parts.append(part)
+
         return parts
 
     @require_connected

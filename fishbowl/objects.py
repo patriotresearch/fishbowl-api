@@ -1,18 +1,24 @@
 from __future__ import unicode_literals
-import copy
+
 import collections
-from collections import OrderedDict
-import sys
-import inspect
-import datetime
+import copy
 import decimal
+import inspect
+import sys
+from collections import OrderedDict
+from datetime import datetime
 
 
 def fishbowl_datetime(text):
-    return datetime.strptime(text, "%Y-%m-%dT%H:%M:%S")
+    fmt = "%Y-%m-%dT%H:%M:%S"
+
+    if isinstance(text, str) and "T" not in text:
+        fmt = "%Y-%m-%d %H:%M:%S.%f"
+
+    return datetime.strptime(text, fmt)
 
 
-fishbowl_datetime.type = datetime.datetime
+fishbowl_datetime.type = datetime
 
 
 def fishbowl_boolean(text):
@@ -344,6 +350,8 @@ class Part(FishbowlObject):
             ("SizeUOMID", int),
             ("CustomFields", [CustomField]),
             ("VendorPartNums", None),
+            ("DateCreated", fishbowl_datetime),
+            ("DateLastModified", fishbowl_datetime),
         ]
     )
 
