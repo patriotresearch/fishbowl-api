@@ -18,13 +18,14 @@ Then run::
 
 import collections
 import datetime
+import json
 import logging
 import os
 import sys
-import json
+
 from lxml import etree
 
-from fishbowl.api import FishbowlAPI
+from fishbowl.api import FishbowlAPI, FishbowlJSONAPI
 
 try:
     import configparser
@@ -61,6 +62,12 @@ def run():
             response = fishbowl.send_request(sys.argv[1], value)
             return etree.tostring(response).decode("utf-8")
 
+        # parts = fishbowl.get_parts_all()
+        # print(parts)
+
+        # serial = fishbowl.get_serial_numbers()
+        # print(serial)
+
         # fishbowl.send_request(
         #     'GetSOListRq',
         #     {
@@ -73,11 +80,11 @@ def run():
         # response = fishbowl.send_request('GetShipListRq')
 
         # products = fishbowl.get_products()
-        customers = fishbowl.get_customers_fast(
-            populate_pricing_rules=False, populate_addresses=False
-        )
+        # customers = fishbowl.get_customers_fast(
+        #     populate_pricing_rules=False, populate_addresses=False
+        # )
         # rules = fishbowl.get_pricing_rules()
         # import ipdb; ipdb.set_trace()
 
-        response = fishbowl.send_request("CustomerNameListRq")
-        return etree.tostring(response)
+        # response = fishbowl.send_request("CustomerNameListRq")
+        # return etree.tostring(response)

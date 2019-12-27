@@ -6,3 +6,4 @@ fishbowl/fishbowl.ini
 .venv
 .vscode
 *.egg-info
+.mypy_cache

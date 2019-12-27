@@ -1,19 +1,21 @@
 from __future__ import unicode_literals
+
 import base64
 import csv
+import functools
+import hashlib
+import json
+import logging
 import socket
 import struct
-import hashlib
-import functools
-import logging
 import sys
 import time
 from functools import partial
-from lxml import etree
-
 from io import StringIO
 
-from . import xmlrequests, statuscodes, objects
+from lxml import etree
+
+from . import jsonrequests, objects, statuscodes, xmlrequests
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +55,13 @@ PARTS_SQL = (
     "FROM Part"
 )
 
+SERIAL_NUMBER_SQL = (
+    "SELECT sn.serialId, sn.serialNum, p.num as PartNum FROM serialnum sn "
+    "LEFT JOIN serial s ON s.id = sn.serialId "
+    "LEFT JOIN tag t on t.id = s.tagId "
+    "LEFT JOIN part p on t.partId = p.id"
+)
+
 
 def UnicodeDictReader(utf8_data, **kwargs):
     csv_reader = csv.DictReader(utf8_data, **kwargs)
@@ -88,20 +97,7 @@ def require_connected(func):
     return dec
 
 
-class Fishbowl:
-    """
-    Fishbowl API connection.
-
-    For standard higher level usage, use the :cls:`FishbowlAPI` that creates
-    instances of this class as required.
-
-    Example usage::
-
-        fishbowl = Fishbowl()
-        fishbowl.connect(
-            username='admin', password='pw', host='10.0.0.1', port=28192)
-    """
-
+class BaseFishbowl:
     host = "localhost"
     port = 28192
     encoding = "latin-1"
@@ -137,6 +133,45 @@ class Fishbowl:
         stream.settimeout(timeout)
         return stream
 
+    def pack_message(self, msg):
+        """
+        Calculate msg length and prepend to msg.
+        """
+        msg_length = len(msg)
+        # '>L' = 4 byte unsigned long, big endian format
+        packed_length = struct.pack(">L", msg_length)
+        return packed_length + msg
+
+    def close(self, skip_errors=False):
+        """
+        Close connection to Fishbowl API.
+        """
+        try:
+            has_key = getattr(self, "key", None)
+            if has_key:
+                # Unset key first to avoid a loop if the logout request fails.
+                self.key = None
+                logout_xml = self.auth_request(
+                    self.username, "", logout=self.key, task_name=self.task_name
+                ).request
+                logout_response = self.send_message(logout_xml)
+            if not self.connected:
+                raise OSError("Not connected")
+            self._connected = False
+            self.stream.close()
+            if has_key:
+                check_status(logout_response.find("FbiMsgsRs"), expected="1010")
+        except Exception:
+            if not skip_errors:
+                logger.exception(
+                    "Unexpected error while trying to close the Fishbowl " "connection"
+                )
+                raise
+
+
+class JSONFishbowl(BaseFishbowl):
+    auth_request = jsonrequests.Login
+
     def connect(self, username, password, host, port, timeout=5):
         """
         Open socket stream, set timeout, and log in.
@@ -155,7 +190,187 @@ class Fishbowl:
 
         try:
             self.key = None
-            login_xml = xmlrequests.Login(username, password, task_name=self.task_name).request
+            login_json = self.auth_request(username, password, task_name=self.task_name).request
+            response = self.send_message(login_json)
+
+            for key, value in response["FbiJson"].items():
+                if key == "Ticket":
+                    self.key = value.get("Key", None)
+
+                if key in ("loginRs", "LoginRs", "FbiMsgsRs"):
+                    check_status(value, allow_none=True)
+
+            if not self.key:
+                msg = "No login key in response"
+                logger.error(msg)
+                raise FishbowlError(msg)
+        except Exception:
+            logger.exception(
+                "Unexpected exception while connecting to Fishbowl, closing connection"
+            )
+            self.close(skip_errors=True)
+            raise
+        self.username = username
+
+    @require_connected
+    def send_message(self, msg):
+        """
+        Send a message to the API and return the root element of the XML that
+        comes back as a response.
+
+        For higher level usage, see :meth:`send_request`.
+        """
+        if isinstance(msg, jsonrequests.Request):
+            msg = msg.request
+
+        tag = "unknown"
+        # try:
+        #     xml = etree.fromstring(msg)
+        #     request_tag = xml.find("FbiMsgsRq")
+        #     if request_tag is not None and len(request_tag):
+        #         tag = request_tag[0].tag
+        # except etree.XMLSyntaxError:
+        #     pass
+        logger.info("Sending message (%s)", tag)
+        logger.debug("Sending message:\n %s", msg)
+        self.stream.send(self.pack_message(msg.encode("utf-8")))
+
+        # Get response
+        byte_count = 0
+        response = bytearray()
+        received_length = False
+        try:
+            packed_length = b""
+            while len(packed_length) < 4:
+                packed_length += self.stream.recv(4 - len(packed_length))
+            length = struct.unpack(">L", packed_length)[0]
+            received_length = True
+            while byte_count < length:
+                byte = ord(self.stream.recv(1))
+                byte_count += 1
+                response.append(byte)
+        except socket.timeout:
+            self.close(skip_errors=True)
+            if received_length:
+                msg = "Connection timeout (after length received)"
+            else:
+                msg = "Connection timeout"
+            logger.exception(msg)
+            raise FishbowlTimeoutError(msg)
+        response = response.decode(self.encoding)
+        logger.debug("Response received:\n%s", response)
+
+        return json.loads(response)
+
+    # TODO: Convert to json
+    @require_connected
+    def send_request(
+        self, request, value=None, response_node_name=None, single=True, silence_errors=False,
+    ):
+        """
+        Send a simple request to the API that follows the standard method.
+
+        :param request: A :cls:`fishbowl.xmlrequests.Request` instance, or text
+            containing the name of the base XML node to create
+        :param value: A string containing the text of the base node, or a
+            dictionary mapping to children nodes and their values (only used if
+            request is just the text node name)
+        :param response_node_name: Find and return this base response XML node
+        :param single: Expect and return the single child of
+            ``response_node_name`` (default ``True``)
+        :param silence_errors: Return an empty XML node rather than raising an
+            error if the response returns an unexpected status code (default
+            ``False``)
+        """
+        if isinstance(request, str):
+            request = xmlrequests.SimpleRequest(request, value, key=self.key)
+        root = self.send_message(request)
+        if response_node_name:
+            try:
+                resp = root.find("FbiMsgsRs")
+                check_status(resp, allow_none=True)
+                root = resp.find(response_node_name)
+                check_status(root, allow_none=True)
+            except FishbowlError:
+                if silence_errors:
+                    return etree.Element("empty")
+                logger.error("Unexpected response status")
+                raise
+            if single:
+                if len(root):
+                    root = root[0]
+                else:
+                    root = etree.Element("empty")
+        return root
+
+    # TODO: Convert to json
+    @require_connected
+    def send_query(self, query):
+        """
+        Send a SQL query to be executed on the server, returning a
+        ``DictReader`` containing the rows returned as a list of dictionaries.
+        """
+        response = self.send_request(
+            "ExecuteQueryRq", {"Query": query}, response_node_name="ExecuteQueryRs"
+        )
+        csvfile = StringIO()
+        for row in response.iter("Row"):
+            # csv.DictReader API changed
+            text = f"{row.text}\n"
+            csvfile.write(text)
+        csvfile.seek(0)
+        return UnicodeDictReader(csvfile)
+
+    # TODO: Convert to json
+    @require_connected
+    def get_parts_all(self) -> list:
+        parts = []
+
+        for row in self.send_query(PARTS_SQL):
+            part = objects.Part(row)
+            if not part:
+                continue
+
+            parts.append(part)
+
+        return parts
+
+
+class Fishbowl(BaseFishbowl):
+    """
+    Fishbowl API connection.
+
+    For standard higher level usage, use the :cls:`FishbowlAPI` that creates
+    instances of this class as required.
+
+    Example usage::
+
+        fishbowl = Fishbowl()
+        fishbowl.connect(
+            username='admin', password='pw', host='10.0.0.1', port=28192)
+    """
+
+    auth_request = xmlrequests.Login
+
+    def connect(self, username, password, host, port, timeout=5):
+        """
+        Open socket stream, set timeout, and log in.
+        """
+        password = base64.b64encode(hashlib.md5(password.encode(self.encoding)).digest()).decode(
+            "ascii"
+        )
+
+        if self.connected:
+            self.close()
+
+        self.host = host
+        self.port = int(port)
+        self.stream = self.make_stream(timeout=float(timeout))
+        self._connected = True
+
+        try:
+            self.key = None
+            login_xml = self.auth_request(username, password, task_name=self.task_name).request
             response = self.send_message(login_xml)
             # parse xml, grab api key, check status
             for element in response.iter():
@@ -175,41 +390,6 @@ class Fishbowl:
             self.close(skip_errors=True)
             raise
         self.username = username
-
-    def close(self, skip_errors=False):
-        """
-        Close connection to Fishbowl API.
-        """
-        try:
-            has_key = getattr(self, "key", None)
-            if has_key:
-                # Unset key first to avoid a loop if the logout request fails.
-                self.key = None
-                logout_xml = xmlrequests.Login(
-                    self.username, "", logout=self.key, task_name=self.task_name
-                ).request
-                logout_response = self.send_message(logout_xml)
-            if not self.connected:
-                raise OSError("Not connected")
-            self._connected = False
-            self.stream.close()
-            if has_key:
-                check_status(logout_response.find("FbiMsgsRs"), expected="1010")
-        except Exception:
-            if not skip_errors:
-                logger.exception(
-                    "Unexpected error while trying to close the Fishbowl " "connection"
-                )
-                raise
-
-    def pack_message(self, msg):
-        """
-        Calculate msg length and prepend to msg.
-        """
-        msg_length = len(msg)
-        # '>L' = 4 byte unsigned long, big endian format
-        packed_length = struct.pack(">L", msg_length)
-        return packed_length + msg
 
     @require_connected
     def send_request(
@@ -491,17 +671,24 @@ class Fishbowl:
         return parts
 
     @require_connected
-    def get_parts_all(self):
-        parts = []
+    def basic_query(self, sql, serializer):
+        objs = []
 
-        for row in self.send_query(PARTS_SQL):
-            part = objects.Part(row)
-            if not part:
+        for row in self.send_query(sql):
+            obj = serializer(row)
+
+            if not obj:
                 continue
 
-            parts.append(part)
+            objs.append(obj)
 
-        return parts
+        return objs
+
+    def get_parts_all(self):
+        return self.basic_query(PARTS_SQL, objects.Part)
+
+    def get_serial_numbers(self):
+        return self.basic_query(SERIAL_NUMBER_SQL, objects.Serial)
 
     @require_connected
     def get_products(self, lazy=True):
@@ -708,12 +895,14 @@ class FishbowlAPI:
             process_products(products)
     """
 
+    client = Fishbowl
+
     def __init__(self, task_name=None, **connection_args):
         self.task_name = task_name
         self.connection_args = connection_args
 
     def __enter__(self):
-        self.fb = Fishbowl(task_name=self.task_name)
+        self.fb = self.client(task_name=self.task_name)
         self.fb.connect(**self.connection_args)
         return self.fb
 
@@ -728,6 +917,10 @@ class FishbowlAPI:
             pass
 
 
+class FishbowlJSONAPI(FishbowlAPI):
+    client = JSONFishbowl
+
+
 def check_status(element, expected=statuscodes.SUCCESS, allow_none=False):
     """
     Check the status code from an XML node, raising an exception if it wasn't
@@ -737,6 +930,6 @@ def check_status(element, expected=statuscodes.SUCCESS, allow_none=False):
     message = element.get("statusMessage")
     if message is None:
         message = statuscodes.get_status(code)
-    if code != expected and (code is not None or not allow_none):
+    if str(code) != expected and (code is not None or not allow_none):
         raise FishbowlError(message)
     return message

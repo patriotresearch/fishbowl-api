@@ -385,6 +385,10 @@ class Product(FishbowlObject):
     )
 
 
+class Serial(FishbowlObject):
+    fields = OrderedDict([("SerialID", int), ("SerialNum", None), ("PartNum", None)])
+
+
 class SalesOrderItem(FishbowlObject):
     fields = OrderedDict(
         [

@@ -1,14 +1,14 @@
 from __future__ import unicode_literals
 
-import struct
-from hashlib import sha1
-from decimal import Decimal
 import datetime
-from lxml import etree
+import struct
 from collections import OrderedDict
+from decimal import Decimal
+from hashlib import sha1
+
+from lxml import etree
 
 from fishbowl.objects import FishbowlObject
-
 
 _PROTECTED_TYPES = (
     type(None),
@@ -82,7 +82,7 @@ def object_to_xml(obj, name=None):
     return element
 
 
-class Request:
+class BaseRequest:
     key_required = True
 
     def __init__(self, key=""):
@@ -91,6 +91,13 @@ class Request:
                 "An API key was not provided (not enough arguments for {0} "
                 "request)".format(self.__class__.__name__)
             )
+
+
+class Request(BaseRequest):
+    key_required = True
+
+    def __init__(self, key=""):
+        super().__init__(key=key)
         self.el_root = etree.Element("FbiXml")
         el_ticket = etree.SubElement(self.el_root, "Ticket")
         el_key = etree.SubElement(el_ticket, "Key")
