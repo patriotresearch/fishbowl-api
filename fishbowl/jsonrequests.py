@@ -10,12 +10,15 @@ class Request(BaseRequest):
 
     @property
     def request(self):
-        import json
-
         return json.dumps(self.root)
 
-    def add_data(self, data):
-        self.root["FbiJson"]["FbiMsgsRq"] = data
+    def add_data(self, name, data):
+        self.root["FbiJson"]["FbiMsgsRq"][name] = data
+
+    def add_request_element(self, name):
+        self.root["FbiJson"]["FbiMsgsRq"][name] = None
+
+        return self.root["FbiJson"]["FbiMsgsRq"][name]
 
 
 class Login(Request):
@@ -29,8 +32,8 @@ class Login(Request):
         iadescription = "Connection for Python Wrapper"
         if task_name:
             # Attach the task name to the end of the internal app.
-            ianame = "{} ({})".format(ianame, task_name)
-            iadescription = "{} ({} task)".format(iadescription, task_name)
+            ianame = f"{ianame} ({task_name})"
+            iadescription = f"{iadescription} ({task_name} task)"
             # Make a unique internal app id from the hash of the task name.
             # This uses a namespace of only 100,000 so there is a potential
             # chance of collisions. unperceivable.
@@ -47,17 +50,17 @@ class Login(Request):
         }
 
         if logout:
-            self.add_data({"LogoutRq": ""})
+            self.add_data("LogoutRq", "")
         else:
-            self.add_data({"LoginRq": data})
+            self.add_data("LoginRq", data)
 
 
-class SimpleJSONRequest(Request):
+class SimpleRequest(Request):
     def __init__(self, request_name, value=None, key=""):
         super().__init__(key)
         el = self.add_request_element(request_name)
         if value is not None:
             if isinstance(value, dict):
-                self.add_elements(el, value)
+                el = value
             else:
-                el.text = str(value)
+                el = str(value)

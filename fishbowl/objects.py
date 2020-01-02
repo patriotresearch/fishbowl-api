@@ -381,12 +381,14 @@ class Product(FishbowlObject):
             ("KitFlag", fishbowl_boolean),
             ("ShowSOComboFlag", fishbowl_boolean),
             ("Image", None),
+            ("DateCreated", fishbowl_datetime),
+            ("DateLastModified", fishbowl_datetime),
         ]
     )
 
 
 class Serial(FishbowlObject):
-    fields = OrderedDict([("SerialID", int), ("SerialNum", None), ("PartNum", None)])
+    fields = OrderedDict([("ID", int), ("SerialID", int), ("SerialNum", None), ("PartNum", None)])
 
 
 class SalesOrderItem(FishbowlObject):

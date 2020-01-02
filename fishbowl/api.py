@@ -56,7 +56,7 @@ PARTS_SQL = (
 )
 
 SERIAL_NUMBER_SQL = (
-    "SELECT sn.serialId, sn.serialNum, p.num as PartNum FROM serialnum sn "
+    "SELECT sn.id, sn.serialId, sn.serialNum, p.num as PartNum FROM serialnum sn "
     "LEFT JOIN serial s ON s.id = sn.serialId "
     "LEFT JOIN tag t on t.id = s.tagId "
     "LEFT JOIN part p on t.partId = p.id"
@@ -321,6 +321,20 @@ class JSONFishbowl(BaseFishbowl):
         csvfile.seek(0)
         return UnicodeDictReader(csvfile)
 
+    @require_connected
+    def basic_query(self, sql, serializer):
+        objs = []
+
+        for row in self.send_query(sql):
+            obj = serializer(row)
+
+            if not obj:
+                continue
+
+            objs.append(obj)
+
+        return objs
+
     # TODO: Convert to json
     @require_connected
     def get_parts_all(self) -> list:
@@ -334,6 +348,9 @@ class JSONFishbowl(BaseFishbowl):
             parts.append(part)
 
         return parts
+
+    def get_serial_numbers(self):
+        return self.basic_query(SERIAL_NUMBER_SQL, objects.Serial)
 
 
 class Fishbowl(BaseFishbowl):
