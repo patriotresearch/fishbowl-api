@@ -56,7 +56,9 @@ PARTS_SQL = (
 )
 
 SERIAL_NUMBER_SQL = (
-    "SELECT sn.id, sn.serialId, sn.serialNum, p.num as PartNum FROM serialnum sn "
+    "SELECT sn.id, sn.serialId, sn.serialNum, p.num as PartNum, "
+    "t.dateCreated as DateCreated, t.dateLastModified as DateLastModified "
+    "FROM serialnum sn "
     "LEFT JOIN serial s ON s.id = sn.serialId "
     "LEFT JOIN tag t on t.id = s.tagId "
     "LEFT JOIN part p on t.partId = p.id"

@@ -388,7 +388,16 @@ class Product(FishbowlObject):
 
 
 class Serial(FishbowlObject):
-    fields = OrderedDict([("ID", int), ("SerialID", int), ("SerialNum", None), ("PartNum", None)])
+    fields = OrderedDict(
+        [
+            ("ID", int),
+            ("SerialID", int),
+            ("SerialNum", None),
+            ("PartNum", None),
+            ("DateCreated", fishbowl_datetime),
+            ("DateLastModified", fishbowl_datetime),
+        ]
+    )
 
 
 class SalesOrderItem(FishbowlObject):
