@@ -1,7 +1,11 @@
 from __future__ import unicode_literals
-from unittest import TestCase
-from lxml import etree
+
+import logging
 import struct
+from contextlib import contextmanager
+from unittest import TestCase
+
+from lxml import etree
 
 from fishbowl import api, statuscodes
 
@@ -60,6 +64,18 @@ CYCLE_INVENTORY_XML = """
 )
 
 
+@contextmanager
+def disable_logger(name):
+    """ Temporarily disable a specific logger. """
+    logger = logging.getLogger(name)
+    old_value = logger.disabled
+    logger.disabled = True
+    try:
+        yield
+    finally:
+        logger.disabled = old_value
+
+
 class APIStreamTest(TestCase):
     @mock.patch("fishbowl.api.socket")
     def test_make_stream(self, mock_socket):
@@ -112,7 +128,10 @@ class APITest(TestCase):
         self.assertFalse(self.api.connected)
 
     def test_connect_bad_response(self):
-        self.assertRaises(api.FishbowlError, self.connect, login_return_value=ADD_INVENTORY_XML)
+        with disable_logger("fishbowl.api"):
+            self.assertRaises(
+                api.FishbowlError, self.connect, login_return_value=ADD_INVENTORY_XML
+            )
         self.assertFalse(self.api.connected)
 
     def test_bad_close(self):
@@ -120,7 +139,8 @@ class APITest(TestCase):
         self.fake_stream.close.side_effect = ValueError()
         with mock.patch.object(self.api, "send_message") as mock_message:
             mock_message.return_value = etree.fromstring(LOGOUT_XML)
-            self.assertRaises(ValueError, self.api.close)
+            with disable_logger("fishbowl.api"):
+                self.assertRaises(ValueError, self.api.close)
         self.assertFalse(self.api.connected)
 
     def test_bad_close_silent(self):
@@ -153,7 +173,8 @@ class APITest(TestCase):
         self.assertTrue(self.api.port, "1234")
 
     def test_required_connected_method(self):
-        self.assertRaises(OSError, self.api.close)
+        with disable_logger("fishbowl.api"):
+            self.assertRaises(OSError, self.api.close)
 
     def set_response_xml(self, response_xml, staggered=False):
         response = []
