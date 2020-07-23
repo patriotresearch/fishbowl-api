@@ -889,6 +889,74 @@ LEFT JOIN CUSTOMINTEGER CI ON CI.recordid = PART.ID AND CI.customfieldid = (
         check_status(response.find("FbiMsgsRs"))
         return objects.SalesOrder(response.find("SalesOrder"))
 
+    @require_connected
+    def get_import_headers(self, import_type):
+        """
+        Return the expected CSV headers for the provided import type.
+
+        import_type should be a valid import from the Fishbowl documentation
+        as found here: https://www.fishbowlinventory.com/wiki/Imports_and_Exports#List_of_imports_and_exports
+        with the name formatted like 'ImportCsvName' with all spaces removed.
+        """
+        request = xmlrequests.ImportHeaders(import_type, key=self.key)
+        response = self.send_message(request)
+        check_status(response.find("FbiMsgsRs"))
+        return response.xpath("//Header/Row")[0].text
+
+    @require_connected
+    def run_import(self, import_type, rows):
+        """
+        Run the provided import type with the provided rows.
+
+        Rows can, and ideally should, contain a header entry as the first item
+        to assist fishbowl in determining the data format. You can get the
+        full list of headers for a specific import via the get_import_headers()
+        method.
+
+        Depending on the import you are running some columns may be optional
+        and can be left out of the rows data entirely. Be sure to update the
+        header entry you provide to match the data you leave out.
+
+        For some imports, if a duplicate 'key' is included, for example you have
+        two rows with the same PartNumber in a ImportPart request, the last
+        row will take precedence and it is as if the previous rows do not exist.
+
+        Refer to the Fishbowl documentation for the specific import you are
+        using: https://www.fishbowlinventory.com/wiki/Imports_and_Exports#List_of_imports_and_exports
+        """
+        request = xmlrequests.ImportRequest(import_type, rows, key=self.key)
+        response = self.send_message(request)
+        check_status(response.xpath("//ImportRs")[0])
+
+    @require_connected
+    def get_available_exports(self):
+        """
+        Return a list of available export types.
+
+        Each export type is the string name of the export that can be directly
+        used with get_export()
+        """
+        request = xmlrequests.ExportListRequest(key=self.key)
+        response = self.send_message(request)
+        check_status(response.find("FbiMsgsRs"))
+        return [x.text for x in response.xpath("//Exports/ExportName")]
+
+    @require_connected
+    def run_export(self, export_type):
+        """
+        Return the result rows of the provided export type.
+
+        export_type must be one of the types as returned from
+        get_available_exports()
+
+        The first result should be the header row, but Fishbowl documentation
+        doesn't appear to guarantee that.
+        """
+        request = xmlrequests.ExportRequest(export_type, key=self.key)
+        response = self.send_message(request)
+        check_status(response.find("FbiMsgsRs"))
+        return [x.text for x in response.xpath("//Rows/Row")]
+
 
 class FishbowlAPI:
     """
