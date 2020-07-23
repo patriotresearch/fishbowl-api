@@ -104,6 +104,7 @@ class BaseFishbowl:
     port = 28192
     encoding = "latin-1"
     login_timeout = 3
+    chunk_size = 1024
 
     def __init__(self, task_name=None):
         self._connected = False
@@ -169,6 +170,46 @@ class BaseFishbowl:
                     "Unexpected error while trying to close the Fishbowl " "connection"
                 )
                 raise
+
+    def read_response(self, stream):
+        """
+        Read a Fishbowl formatted network response from the provided socket.
+
+        Fishbowl sends a 32bit unsigned integer (big endian) as the first 4
+        bytes of every response, this is the length of the response in bytes,
+        not including those 4 initial bytes.
+
+        The rest of the response depends on the message that was sent, so it
+        is returned after being decoded from a bytestring into whatever
+        encoding is currently set.
+        """
+        response = b""
+        received_length = False
+        try:
+            packed_length = b""
+            while len(packed_length) < 4:
+                packed_length += stream.recv(4 - len(packed_length))
+            length = struct.unpack(">L", packed_length)[0]
+            received_length = True
+            left_to_read = length
+            while left_to_read > 0:
+                if left_to_read < self.chunk_size:
+                    buff = stream.recv(left_to_read)
+                else:
+                    buff = stream.recv(self.chunk_size)
+                response += buff
+                left_to_read -= len(buff)
+        except socket.timeout:
+            self.close(skip_errors=True)
+            if received_length:
+                msg = "Connection timeout (after length received)"
+            else:
+                msg = "Connection timeout"
+            logger.exception(msg)
+            raise FishbowlTimeoutError(msg)
+        response = response.decode(self.encoding)
+        logger.debug("Response received:\n%s", response)
+        return response
 
 
 class JSONFishbowl(BaseFishbowl):
@@ -237,30 +278,7 @@ class JSONFishbowl(BaseFishbowl):
         logger.debug("Sending message:\n %s", msg)
         self.stream.send(self.pack_message(msg.encode("utf-8")))
 
-        # Get response
-        byte_count = 0
-        response = bytearray()
-        received_length = False
-        try:
-            packed_length = b""
-            while len(packed_length) < 4:
-                packed_length += self.stream.recv(4 - len(packed_length))
-            length = struct.unpack(">L", packed_length)[0]
-            received_length = True
-            while byte_count < length:
-                byte = ord(self.stream.recv(1))
-                byte_count += 1
-                response.append(byte)
-        except socket.timeout:
-            self.close(skip_errors=True)
-            if received_length:
-                msg = "Connection timeout (after length received)"
-            else:
-                msg = "Connection timeout"
-            logger.exception(msg)
-            raise FishbowlTimeoutError(msg)
-        response = response.decode(self.encoding)
-        logger.debug("Response received:\n%s", response)
+        response = self.read_response(self.stream)
 
         return json.loads(response)
 
@@ -490,30 +508,8 @@ class Fishbowl(BaseFishbowl):
         logger.debug("Sending message:\n" + msg.decode(self.encoding))
         self.stream.send(self.pack_message(msg))
 
-        # Get response
-        byte_count = 0
-        response = bytearray()
-        received_length = False
-        try:
-            packed_length = b""
-            while len(packed_length) < 4:
-                packed_length += self.stream.recv(4 - len(packed_length))
-            length = struct.unpack(">L", packed_length)[0]
-            received_length = True
-            while byte_count < length:
-                byte = ord(self.stream.recv(1))
-                byte_count += 1
-                response.append(byte)
-        except socket.timeout:
-            self.close(skip_errors=True)
-            if received_length:
-                msg = "Connection timeout (after length received)"
-            else:
-                msg = "Connection timeout"
-            logger.exception(msg)
-            raise FishbowlTimeoutError(msg)
-        response = response.decode(self.encoding)
-        logger.debug("Response received:\n" + response)
+        response = self.read_response(self.stream)
+
         return etree.fromstring(response)
 
     @require_connected
