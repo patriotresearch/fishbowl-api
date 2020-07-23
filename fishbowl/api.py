@@ -8,7 +8,6 @@ import json
 import logging
 import socket
 import struct
-import sys
 import time
 from functools import partial
 from io import StringIO
@@ -536,7 +535,7 @@ class Fishbowl(BaseFishbowl):
         return self.send_message(request)
 
     @require_connected
-    def get_total_inventory(self, partnum, locationid):
+    def get_total_inventory(self, partnum, locationgroup):
         """
         Returns total inventory count at specified location
         """
