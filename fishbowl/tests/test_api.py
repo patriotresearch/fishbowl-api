@@ -164,7 +164,7 @@ class APITest(TestCase):
             response.append(length[3:])
         else:
             response.append(length)
-        response.extend(list(response_xml))
+        response.append(response_xml)
         self.fake_stream.recv.side_effect = response
 
     def test_send_message(self):
@@ -172,9 +172,6 @@ class APITest(TestCase):
         request_xml = b"<test></test>"
         response_xml = b"<FbiXml><FbiMsgsRq/></FbiXml>"
         self.set_response_xml(response_xml)
-        self.fake_stream.recv.side_effect = [struct.pack(">L", len(response_xml))] + list(
-            response_xml
-        )
         response = self.api.send_message(request_xml)
         self.assertEqual(etree.tostring(response), response_xml)
         self.fake_stream.send.assert_called_with(struct.pack(">L", len(request_xml)) + request_xml)
@@ -189,9 +186,6 @@ class APITest(TestCase):
         response_xml += b"</FbiXml>"  # 9
         # 22 + 192 + 9 = 223
         self.set_response_xml(response_xml, staggered=True)
-        self.fake_stream.recv.side_effect = [struct.pack(">L", len(response_xml))] + list(
-            response_xml
-        )
         response = self.api.send_message(request_xml)
         self.assertEqual(etree.tostring(response), response_xml)
         self.fake_stream.send.assert_called_with(struct.pack(">L", len(request_xml)) + request_xml)
