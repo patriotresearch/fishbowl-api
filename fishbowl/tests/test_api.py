@@ -74,28 +74,15 @@ class APIStreamTest(TestCase):
 class APITaskNameTest(TestCase):
     def test_task_name(self):
         fake_stream = mock.MagicMock()
-        fb = api.Fishbowl(task_name="test")
+        fb = api.Fishbowl(task_name="mumbo jumbo's magic task")
         fb.make_stream = mock.Mock(return_value=fake_stream)
         fb.send_message = mock.Mock(return_value=etree.fromstring(LOGIN_SUCCESS))
         fb.connect(username="test", password="password", host="localhost", port=28192)
-        self.assertEqual(
-            fb.send_message.call_args[0][0],
-            """<FbiXml>
-  <Ticket>
-    <Key></Key>
-  </Ticket>
-  <FbiMsgsRq>
-    <LoginRq>
-      <UserName>test</UserName>
-      <IAName>PythonApp (test)</IAName>
-      <UserPassword>X03MO1qnZdYdgyfeuILPmQ==</UserPassword>
-      <IAID>2205929</IAID>
-      <IADescription>Connection for Python Wrapper (test task)</IADescription>
-    </LoginRq>
-  </FbiMsgsRq>
-</FbiXml>
-""",
-        )
+        message = etree.fromstring(fb.send_message.call_args[0][0])
+        ianame = message.xpath("//IAName")[0].text
+        iadescription = message.xpath("//IADescription")[0].text
+        self.assertIn(fb.task_name, ianame)
+        self.assertIn(fb.task_name, iadescription)
 
 
 class APITest(TestCase):
