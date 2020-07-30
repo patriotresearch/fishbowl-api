@@ -890,6 +890,19 @@ LEFT JOIN CUSTOMINTEGER CI ON CI.recordid = PART.ID AND CI.customfieldid = (
         return objects.SalesOrder(response.find("SalesOrder"))
 
     @require_connected
+    def get_available_imports(self):
+        """
+        Return a list of available export types.
+
+        Each export type is the string name of the export that can be directly
+        used with get_export()
+        """
+        request = xmlrequests.ImportListRequest(key=self.key)
+        response = self.send_message(request)
+        check_status(response.find("FbiMsgsRs"))
+        return [x.text for x in response.xpath("//ImportNames/ImportName")]
+
+    @require_connected
     def get_import_headers(self, import_type):
         """
         Return the expected CSV headers for the provided import type.

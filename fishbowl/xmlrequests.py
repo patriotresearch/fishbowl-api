@@ -225,6 +225,12 @@ class SimpleRequest(Request):
                 el.text = str(value)
 
 
+class ImportListRequest(Request):
+    def __init__(self, key=""):
+        Request.__init__(self, key)
+        self.add_request_element("ImportListRq")
+
+
 class ImportRequest(Request):
     def __init__(self, import_type, rows=None, key=""):
         Request.__init__(self, key)
