@@ -787,6 +787,14 @@ LEFT JOIN CUSTOMINTEGER CI ON CI.recordid = PART.ID AND CI.customfieldid = (
         )
 
         for row in self.send_query(sql):
+            # NOTE: the PRODUCTS_SQL query selects every column from the
+            #       PRODUCT table (the P.* at the beginning) and at some
+            #       point Fishbowl has added a 'customFields' column that
+            #       seems to have a JSON blob in it... anyway, that conflicts
+            #       with how we parse out custom fields in actual XML
+            #       responses, so we get rid of it here.
+            if "customFields" in row:
+                del row["customFields"]
             product = objects.Product(row, name=row.get("NUM"))
             if not product:
                 continue
