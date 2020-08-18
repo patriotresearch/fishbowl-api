@@ -929,6 +929,8 @@ LEFT JOIN CUSTOMINTEGER CI ON CI.recordid = PART.ID AND CI.customfieldid = (
         """
         Run the provided import type with the provided rows.
 
+        Ideally used with format_rows.
+
         Rows can, and ideally should, contain a header entry as the first item
         to assist fishbowl in determining the data format. You can get the
         full list of headers for a specific import via the get_import_headers()
@@ -1036,3 +1038,15 @@ def check_status(element, expected=statuscodes.SUCCESS, allow_none=False):
     if str(code) != expected and (code is not None or not allow_none):
         raise FishbowlError(message)
     return message
+
+
+def format_rows(rows):
+    """
+    Format rows for use with run_import.
+    """
+    buff = StringIO(newline="")
+    writer = csv.writer(buff, quoting=csv.QUOTE_ALL)
+    for row in rows:
+        writer.writerow(row)
+    buff.seek(0)
+    return [x.strip() for x in buff.readlines()]
