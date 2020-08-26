@@ -225,20 +225,46 @@ class SimpleRequest(Request):
                 el.text = str(value)
 
 
+class ImportListRequest(Request):
+    def __init__(self, key=""):
+        Request.__init__(self, key)
+        self.add_request_element("ImportListRq")
+
+
 class ImportRequest(Request):
-    def __init__(self, request_type, value=None, key=""):
+    def __init__(self, import_type, rows=None, key=""):
         Request.__init__(self, key)
         el = self.add_request_element("ImportRq")
-        self.add_elements(el, [("Type", request_type)])
+        self.add_elements(el, [("Type", import_type)])
         self.el_rows = etree.SubElement(el, "Rows")
-        if value:
-            self.add_rows(value)
+        if rows:
+            self.add_rows(rows)
 
     def add_row(self, row):
         self.add_rows([row])
 
     def add_rows(self, rows):
         self.add_elements(self.el_rows, [("Row", row) for row in rows])
+
+
+class ImportHeaders(Request):
+    def __init__(self, import_type, key=""):
+        Request.__init__(self, key)
+        el = self.add_request_element("ImportHeaderRq")
+        self.add_elements(el, [("Type", import_type)])
+
+
+class ExportListRequest(Request):
+    def __init__(self, key=""):
+        Request.__init__(self, key)
+        self.add_request_element("ExportListRq")
+
+
+class ExportRequest(Request):
+    def __init__(self, export_type, key=""):
+        Request.__init__(self, key)
+        el = self.add_request_element("ExportRq")
+        self.add_elements(el, [("Type", export_type)])
 
 
 class AddInventory(Request):

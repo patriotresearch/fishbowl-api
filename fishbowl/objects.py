@@ -41,6 +41,12 @@ def all_fishbowl_objects():
     )
 
 
+def strip_text(el):
+    if el.text:
+        return el.text.strip()
+    return ""
+
+
 class FishbowlObject(collections.Mapping):
     id_field = None
     name_attr = None
@@ -143,7 +149,7 @@ class FishbowlObject(collections.Mapping):
             children = len(child)
             key = child.tag
             if children:
-                if [el for el in child if el.text.strip()]:
+                if [el for el in child if strip_text(el)]:
                     data[key] = self.get_xml_data(child)
                 else:
                     inner = []

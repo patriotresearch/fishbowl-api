@@ -8,7 +8,6 @@ import json
 import logging
 import socket
 import struct
-import sys
 import time
 from functools import partial
 from io import StringIO
@@ -104,6 +103,7 @@ class BaseFishbowl:
     port = 28192
     encoding = "latin-1"
     login_timeout = 3
+    chunk_size = 1024
 
     def __init__(self, task_name=None):
         self._connected = False
@@ -169,6 +169,46 @@ class BaseFishbowl:
                     "Unexpected error while trying to close the Fishbowl " "connection"
                 )
                 raise
+
+    def read_response(self, stream):
+        """
+        Read a Fishbowl formatted network response from the provided socket.
+
+        Fishbowl sends a 32bit unsigned integer (big endian) as the first 4
+        bytes of every response, this is the length of the response in bytes,
+        not including those 4 initial bytes.
+
+        The rest of the response depends on the message that was sent, so it
+        is returned after being decoded from a bytestring into whatever
+        encoding is currently set.
+        """
+        response = b""
+        received_length = False
+        try:
+            packed_length = b""
+            while len(packed_length) < 4:
+                packed_length += stream.recv(4 - len(packed_length))
+            length = struct.unpack(">L", packed_length)[0]
+            received_length = True
+            left_to_read = length
+            while left_to_read > 0:
+                if left_to_read < self.chunk_size:
+                    buff = stream.recv(left_to_read)
+                else:
+                    buff = stream.recv(self.chunk_size)
+                response += buff
+                left_to_read -= len(buff)
+        except socket.timeout:
+            self.close(skip_errors=True)
+            if received_length:
+                msg = "Connection timeout (after length received)"
+            else:
+                msg = "Connection timeout"
+            logger.exception(msg)
+            raise FishbowlTimeoutError(msg)
+        response = response.decode(self.encoding)
+        logger.debug("Response received:\n%s", response)
+        return response
 
 
 class JSONFishbowl(BaseFishbowl):
@@ -237,30 +277,7 @@ class JSONFishbowl(BaseFishbowl):
         logger.debug("Sending message:\n %s", msg)
         self.stream.send(self.pack_message(msg.encode("utf-8")))
 
-        # Get response
-        byte_count = 0
-        response = bytearray()
-        received_length = False
-        try:
-            packed_length = b""
-            while len(packed_length) < 4:
-                packed_length += self.stream.recv(4 - len(packed_length))
-            length = struct.unpack(">L", packed_length)[0]
-            received_length = True
-            while byte_count < length:
-                byte = ord(self.stream.recv(1))
-                byte_count += 1
-                response.append(byte)
-        except socket.timeout:
-            self.close(skip_errors=True)
-            if received_length:
-                msg = "Connection timeout (after length received)"
-            else:
-                msg = "Connection timeout"
-            logger.exception(msg)
-            raise FishbowlTimeoutError(msg)
-        response = response.decode(self.encoding)
-        logger.debug("Response received:\n%s", response)
+        response = self.read_response(self.stream)
 
         return json.loads(response)
 
@@ -490,30 +507,8 @@ class Fishbowl(BaseFishbowl):
         logger.debug("Sending message:\n" + msg.decode(self.encoding))
         self.stream.send(self.pack_message(msg))
 
-        # Get response
-        byte_count = 0
-        response = bytearray()
-        received_length = False
-        try:
-            packed_length = b""
-            while len(packed_length) < 4:
-                packed_length += self.stream.recv(4 - len(packed_length))
-            length = struct.unpack(">L", packed_length)[0]
-            received_length = True
-            while byte_count < length:
-                byte = ord(self.stream.recv(1))
-                byte_count += 1
-                response.append(byte)
-        except socket.timeout:
-            self.close(skip_errors=True)
-            if received_length:
-                msg = "Connection timeout (after length received)"
-            else:
-                msg = "Connection timeout"
-            logger.exception(msg)
-            raise FishbowlTimeoutError(msg)
-        response = response.decode(self.encoding)
-        logger.debug("Response received:\n" + response)
+        response = self.read_response(self.stream)
+
         return etree.fromstring(response)
 
     @require_connected
@@ -540,7 +535,7 @@ class Fishbowl(BaseFishbowl):
         return self.send_message(request)
 
     @require_connected
-    def get_total_inventory(self, partnum, locationid):
+    def get_total_inventory(self, partnum, locationgroup):
         """
         Returns total inventory count at specified location
         """
@@ -792,6 +787,14 @@ LEFT JOIN CUSTOMINTEGER CI ON CI.recordid = PART.ID AND CI.customfieldid = (
         )
 
         for row in self.send_query(sql):
+            # NOTE: the PRODUCTS_SQL query selects every column from the
+            #       PRODUCT table (the P.* at the beginning) and at some
+            #       point Fishbowl has added a 'customFields' column that
+            #       seems to have a JSON blob in it... anyway, that conflicts
+            #       with how we parse out custom fields in actual XML
+            #       responses, so we get rid of it here.
+            if "customFields" in row:
+                del row["customFields"]
             product = objects.Product(row, name=row.get("NUM"))
             if not product:
                 continue
@@ -894,6 +897,89 @@ LEFT JOIN CUSTOMINTEGER CI ON CI.recordid = PART.ID AND CI.customfieldid = (
         check_status(response.find("FbiMsgsRs"))
         return objects.SalesOrder(response.find("SalesOrder"))
 
+    @require_connected
+    def get_available_imports(self):
+        """
+        Return a list of available export types.
+
+        Each export type is the string name of the export that can be directly
+        used with get_export()
+        """
+        request = xmlrequests.ImportListRequest(key=self.key)
+        response = self.send_message(request)
+        check_status(response.find("FbiMsgsRs"))
+        return [x.text for x in response.xpath("//ImportNames/ImportName")]
+
+    @require_connected
+    def get_import_headers(self, import_type):
+        """
+        Return the expected CSV headers for the provided import type.
+
+        import_type should be a valid import from the Fishbowl documentation
+        as found here: https://www.fishbowlinventory.com/wiki/Imports_and_Exports#List_of_imports_and_exports
+        with the name formatted like 'ImportCsvName' with all spaces removed.
+        """
+        request = xmlrequests.ImportHeaders(import_type, key=self.key)
+        response = self.send_message(request)
+        check_status(response.find("FbiMsgsRs"))
+        return response.xpath("//Header/Row")[0].text
+
+    @require_connected
+    def run_import(self, import_type, rows):
+        """
+        Run the provided import type with the provided rows.
+
+        Ideally used with format_rows.
+
+        Rows can, and ideally should, contain a header entry as the first item
+        to assist fishbowl in determining the data format. You can get the
+        full list of headers for a specific import via the get_import_headers()
+        method.
+
+        Depending on the import you are running some columns may be optional
+        and can be left out of the rows data entirely. Be sure to update the
+        header entry you provide to match the data you leave out.
+
+        For some imports, if a duplicate 'key' is included, for example you have
+        two rows with the same PartNumber in a ImportPart request, the last
+        row will take precedence and it is as if the previous rows do not exist.
+
+        Refer to the Fishbowl documentation for the specific import you are
+        using: https://www.fishbowlinventory.com/wiki/Imports_and_Exports#List_of_imports_and_exports
+        """
+        request = xmlrequests.ImportRequest(import_type, rows, key=self.key)
+        response = self.send_message(request)
+        check_status(response.xpath("//ImportRs")[0])
+
+    @require_connected
+    def get_available_exports(self):
+        """
+        Return a list of available export types.
+
+        Each export type is the string name of the export that can be directly
+        used with get_export()
+        """
+        request = xmlrequests.ExportListRequest(key=self.key)
+        response = self.send_message(request)
+        check_status(response.find("FbiMsgsRs"))
+        return [x.text for x in response.xpath("//Exports/ExportName")]
+
+    @require_connected
+    def run_export(self, export_type):
+        """
+        Return the result rows of the provided export type.
+
+        export_type must be one of the types as returned from
+        get_available_exports()
+
+        The first result should be the header row, but Fishbowl documentation
+        doesn't appear to guarantee that.
+        """
+        request = xmlrequests.ExportRequest(export_type, key=self.key)
+        response = self.send_message(request)
+        check_status(response.find("FbiMsgsRs"))
+        return [x.text for x in response.xpath("//Rows/Row")]
+
 
 class FishbowlAPI:
     """
@@ -952,3 +1038,15 @@ def check_status(element, expected=statuscodes.SUCCESS, allow_none=False):
     if str(code) != expected and (code is not None or not allow_none):
         raise FishbowlError(message)
     return message
+
+
+def format_rows(rows):
+    """
+    Format rows for use with run_import.
+    """
+    buff = StringIO(newline="")
+    writer = csv.writer(buff, quoting=csv.QUOTE_ALL)
+    for row in rows:
+        writer.writerow(row)
+    buff.seek(0)
+    return [x.strip() for x in buff.readlines()]

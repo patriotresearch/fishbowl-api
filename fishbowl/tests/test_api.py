@@ -1,7 +1,11 @@
 from __future__ import unicode_literals
-from unittest import TestCase
-from lxml import etree
+
+import logging
 import struct
+from contextlib import contextmanager
+from unittest import TestCase
+
+from lxml import etree
 
 from fishbowl import api, statuscodes
 
@@ -60,6 +64,18 @@ CYCLE_INVENTORY_XML = """
 )
 
 
+@contextmanager
+def disable_logger(name):
+    """ Temporarily disable a specific logger. """
+    logger = logging.getLogger(name)
+    old_value = logger.disabled
+    logger.disabled = True
+    try:
+        yield
+    finally:
+        logger.disabled = old_value
+
+
 class APIStreamTest(TestCase):
     @mock.patch("fishbowl.api.socket")
     def test_make_stream(self, mock_socket):
@@ -74,28 +90,15 @@ class APIStreamTest(TestCase):
 class APITaskNameTest(TestCase):
     def test_task_name(self):
         fake_stream = mock.MagicMock()
-        fb = api.Fishbowl(task_name="test")
+        fb = api.Fishbowl(task_name="mumbo jumbo's magic task")
         fb.make_stream = mock.Mock(return_value=fake_stream)
         fb.send_message = mock.Mock(return_value=etree.fromstring(LOGIN_SUCCESS))
         fb.connect(username="test", password="password", host="localhost", port=28192)
-        self.assertEqual(
-            fb.send_message.call_args[0][0],
-            """<FbiXml>
-  <Ticket>
-    <Key></Key>
-  </Ticket>
-  <FbiMsgsRq>
-    <LoginRq>
-      <UserName>test</UserName>
-      <IAName>PythonApp (test)</IAName>
-      <UserPassword>X03MO1qnZdYdgyfeuILPmQ==</UserPassword>
-      <IAID>2205929</IAID>
-      <IADescription>Connection for Python Wrapper (test task)</IADescription>
-    </LoginRq>
-  </FbiMsgsRq>
-</FbiXml>
-""",
-        )
+        message = etree.fromstring(fb.send_message.call_args[0][0])
+        ianame = message.xpath("//IAName")[0].text
+        iadescription = message.xpath("//IADescription")[0].text
+        self.assertIn(fb.task_name, ianame)
+        self.assertIn(fb.task_name, iadescription)
 
 
 class APITest(TestCase):
@@ -125,7 +128,10 @@ class APITest(TestCase):
         self.assertFalse(self.api.connected)
 
     def test_connect_bad_response(self):
-        self.assertRaises(api.FishbowlError, self.connect, login_return_value=ADD_INVENTORY_XML)
+        with disable_logger("fishbowl.api"):
+            self.assertRaises(
+                api.FishbowlError, self.connect, login_return_value=ADD_INVENTORY_XML
+            )
         self.assertFalse(self.api.connected)
 
     def test_bad_close(self):
@@ -133,7 +139,8 @@ class APITest(TestCase):
         self.fake_stream.close.side_effect = ValueError()
         with mock.patch.object(self.api, "send_message") as mock_message:
             mock_message.return_value = etree.fromstring(LOGOUT_XML)
-            self.assertRaises(ValueError, self.api.close)
+            with disable_logger("fishbowl.api"):
+                self.assertRaises(ValueError, self.api.close)
         self.assertFalse(self.api.connected)
 
     def test_bad_close_silent(self):
@@ -166,7 +173,8 @@ class APITest(TestCase):
         self.assertTrue(self.api.port, "1234")
 
     def test_required_connected_method(self):
-        self.assertRaises(OSError, self.api.close)
+        with disable_logger("fishbowl.api"):
+            self.assertRaises(OSError, self.api.close)
 
     def set_response_xml(self, response_xml, staggered=False):
         response = []
@@ -177,7 +185,7 @@ class APITest(TestCase):
             response.append(length[3:])
         else:
             response.append(length)
-        response.extend(list(response_xml))
+        response.append(response_xml)
         self.fake_stream.recv.side_effect = response
 
     def test_send_message(self):
@@ -185,9 +193,6 @@ class APITest(TestCase):
         request_xml = b"<test></test>"
         response_xml = b"<FbiXml><FbiMsgsRq/></FbiXml>"
         self.set_response_xml(response_xml)
-        self.fake_stream.recv.side_effect = [struct.pack(">L", len(response_xml))] + list(
-            response_xml
-        )
         response = self.api.send_message(request_xml)
         self.assertEqual(etree.tostring(response), response_xml)
         self.fake_stream.send.assert_called_with(struct.pack(">L", len(request_xml)) + request_xml)
@@ -202,9 +207,6 @@ class APITest(TestCase):
         response_xml += b"</FbiXml>"  # 9
         # 22 + 192 + 9 = 223
         self.set_response_xml(response_xml, staggered=True)
-        self.fake_stream.recv.side_effect = [struct.pack(">L", len(response_xml))] + list(
-            response_xml
-        )
         response = self.api.send_message(request_xml)
         self.assertEqual(etree.tostring(response), response_xml)
         self.fake_stream.send.assert_called_with(struct.pack(">L", len(request_xml)) + request_xml)

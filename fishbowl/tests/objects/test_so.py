@@ -1,8 +1,11 @@
 from __future__ import unicode_literals
+
+import datetime
 import os
 from decimal import Decimal
 
 from fishbowl import objects
+
 from . import utils
 
 
@@ -17,9 +20,12 @@ class SalesOrderTest(utils.ObjectTest):
             "Zip": "93101",
         },
         "Carrier": "Will Call",
+        "CreatedDate": datetime.datetime(2007, 8, 29, 0, 0),
         "CustomerContact": "Beach Bike",
         "CustomerName": "Beach Bike",
         "FOB": "Origin",
+        "FirstShipDate": datetime.datetime(2007, 8, 29, 0, 0),
+        "IssuedDate": datetime.datetime(2007, 8, 29, 16, 48, 56),
         "Items": [
             {
                 "Description": "Battery Pack",
