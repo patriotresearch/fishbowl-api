@@ -41,12 +41,17 @@ CUSTOMER_GROUP_PRICING_RULES_SQL = (
     "WHERE p.productincltypeid = 2 AND p.customerincltypeid = 3"
 )
 
-PRODUCTS_SQL = (
-    "SELECT P.*, PART.STDCOST AS StandardCost, PART.TYPEID as TypeID "
-    "{ci_fields} FROM PRODUCT P "
-    "INNER JOIN PART ON P.PARTID = PART.ID {custom_joins}"
-)
-
+# https://www.fishbowlinventory.com/files/databasedictionary/2017/tables/product.html
+PRODUCTS_SQL = """
+SELECT
+    P.*,
+    PART.STDCOST AS StandardCost,
+    PART.TYPEID as TypeID
+    {ci_fields}
+FROM PRODUCT P
+INNER JOIN PART ON P.PARTID = PART.ID
+{custom_joins}
+"""
 
 # https://www.fishbowlinventory.com/files/databasedictionary/2017/tables/part.html
 PARTS_SQL = """
