@@ -48,11 +48,24 @@ PRODUCTS_SQL = (
 )
 
 
-PARTS_SQL = (
-    "SELECT id, num, stdCost as StandardCost, description, typeID, "
-    "dateLastModified, dateCreated, len, serializedFlag "
-    "FROM Part"
-)
+# https://www.fishbowlinventory.com/files/databasedictionary/2017/tables/part.html
+PARTS_SQL = """
+SELECT
+    id,
+    num,
+    stdCost as StandardCost,
+    description,
+    typeID,
+    dateLastModified,
+    dateCreated,
+    len,
+    weight,
+    height,
+    width,
+    revision,
+    serializedFlag
+FROM Part
+"""
 
 SERIAL_NUMBER_SQL = (
     "SELECT sn.id, sn.serialId, sn.serialNum, p.num as PartNum, "

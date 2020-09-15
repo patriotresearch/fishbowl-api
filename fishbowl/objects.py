@@ -353,6 +353,7 @@ class Part(FishbowlObject):
             ("Width", int),
             ("Height", int),
             ("Len", int),
+            ("Revision", None),
             ("SizeUOMID", int),
             ("CustomFields", [CustomField]),
             ("VendorPartNums", None),
