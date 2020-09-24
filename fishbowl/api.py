@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 PRICING_RULES_SQL = (
     "SELECT p.id, p.isactive, product.num, "
     "p.patypeid, p.papercent, p.pabaseamounttypeid, p.paamount, "
-    "p.customerincltypeid, p.customerinclid "
+    "p.customerincltypeid, p.customerinclid, p.datelastmodified "
     "from pricingrule p INNER JOIN product on p.productinclid = product.id "
     "where p.productincltypeid = 2 and "
     "p.customerincltypeid in (1, 2)"
@@ -30,7 +30,7 @@ PRICING_RULES_SQL = (
 
 CUSTOMER_GROUP_PRICING_RULES_SQL = (
     "SELECT p.id, p.isactive, product.num, p.patypeid, p.papercent, "
-    "p.pabaseamounttypeid, p.paamount, p.customerincltypeid, "
+    "p.pabaseamounttypeid, p.paamount, p.customerincltypeid, p.datelastmodified, "
     "p.customerinclid, c.id as customerid, ag.name as accountgroupname, "
     "c.name as customername "
     "FROM pricingrule p "
@@ -839,12 +839,12 @@ LEFT JOIN CUSTOMINTEGER CI ON CI.recordid = PART.ID AND CI.customfieldid = (
 
         def process_rules(data, rules):
             for row in data:
-                customer_type = row.pop("CUSTOMERINCLTYPEID")
-                customer_id = row.pop("CUSTOMERINCLID")
+                customer_type = row.pop("customerincltypeid")
+                customer_id = row.pop("customerinclid")
                 if customer_type == "1":
                     customer_id = None
                 elif customer_type == "3":
-                    customer_id = int(row.pop("CUSTOMERID"))
+                    customer_id = int(row.pop("customerid"))
                 else:
                     customer_id = int(customer_id)
                 customer_pricing = rules.setdefault(customer_id, [])
