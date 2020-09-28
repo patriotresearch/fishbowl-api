@@ -88,3 +88,7 @@ def run():
 
         # response = fishbowl.send_request("CustomerNameListRq")
         # return etree.tostring(response)
+
+
+if __name__ == "__main__":
+    run()

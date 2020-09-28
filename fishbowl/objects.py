@@ -122,6 +122,8 @@ class FishbowlObject(collections.Mapping):
                 if not isinstance(value, list):
                     value = [value]
                 for value_item in value:
+                    if value_item in ["{}"]:  # TODO: Figure out why this happened?
+                        continue
                     for tag, child in value_item.items():
                         child_parser = classes.get(tag)
                         if not child_parser:
@@ -538,5 +540,20 @@ class TaxRate(FishbowlObject):
             ("VendorID", int),
             ("DefaultFlag", fishbowl_boolean),
             ("ActiveFlag", fishbowl_boolean),
+        ]
+    )
+
+
+class PriceRule(FishbowlObject):
+    fields = OrderedDict(
+        [
+            ("id", int),
+            ("isactive", fishbowl_boolean),
+            ("num", None),
+            ("patypeid", int),
+            ("papercent", decimal.Decimal),
+            ("pabaseamounttypeid", int),
+            ("paamount", decimal.Decimal),
+            ("datelastmodified", fishbowl_datetime),
         ]
     )
