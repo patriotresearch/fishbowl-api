@@ -56,20 +56,23 @@ INNER JOIN PART ON P.PARTID = PART.ID
 # https://www.fishbowlinventory.com/files/databasedictionary/2017/tables/part.html
 PARTS_SQL = """
 SELECT
-    id,
-    num,
-    stdCost as StandardCost,
-    description,
-    typeID,
-    dateLastModified,
-    dateCreated,
-    len,
-    weight,
-    height,
-    width,
-    revision,
-    serializedFlag
-FROM Part
+    p.id,
+    p.num,
+    p.stdCost as StandardCost,
+    p.description,
+    p.typeID,
+    p.dateLastModified,
+    p.dateCreated,
+    p.len,
+    p.weight,
+    p.height,
+    p.width,
+    p.revision,
+    p.serializedFlag,
+    p.uomId,
+    p.weightUomId,
+    p.sizeUomId
+FROM Part p
 """
 
 SERIAL_NUMBER_SQL = (
@@ -371,20 +374,6 @@ class JSONFishbowl(BaseFishbowl):
             objs.append(obj)
 
         return objs
-
-    # TODO: Convert to json
-    @require_connected
-    def get_parts_all(self) -> list:
-        parts = []
-
-        for row in self.send_query(PARTS_SQL):
-            part = objects.Part(row)
-            if not part:
-                continue
-
-            parts.append(part)
-
-        return parts
 
     def get_serial_numbers(self):
         return self.basic_query(SERIAL_NUMBER_SQL, objects.Serial)
@@ -712,15 +701,33 @@ class Fishbowl(BaseFishbowl):
             if not obj:
                 continue
 
-            objs.append(obj)
+            objs.append((obj, row))
 
         return objs
 
+    @require_connected
     def get_parts_all(self):
-        return self.basic_query(PARTS_SQL, objects.Part)
+        parts = self.basic_query(PARTS_SQL, objects.Part)
 
+        uom_map = self.get_uom_map()
+        for part, row in parts:
+
+            self.set_uom("uomId", "UOM", row, part, uom_map)
+            self.set_uom("weightUomId", "WeightUOM", row, part, uom_map)
+            self.set_uom("sizeUomId", "SizeUOM", row, part, uom_map)
+
+        return [o for o, _ in parts]
+
+    @require_connected
     def get_serial_numbers(self):
-        return self.basic_query(SERIAL_NUMBER_SQL, objects.Serial)
+        return [o for o, _ in self.basic_query(SERIAL_NUMBER_SQL, objects.Serial)]
+
+    def set_uom(self, id_field, field, row, obj, uom_map):
+        size_uomid = row.get(id_field)
+        if size_uomid:
+            uom = uom_map.get(int(size_uomid))
+            if uom:
+                obj.mapped[field] = uom
 
     @require_connected
     def get_products(self, lazy=True):
@@ -813,15 +820,14 @@ LEFT JOIN CUSTOMINTEGER CI ON CI.recordid = PART.ID AND CI.customfieldid = (
             #       responses, so we get rid of it here.
             if "customFields" in row:
                 del row["customFields"]
-            product = objects.Product(row, name=row.get("NUM"))
+            product = objects.Product(row, name=row.get("num"))
             if not product:
                 continue
             if populate_uoms:
-                uomid = row.get("UOMID")
-                if uomid:
-                    uom = uom_map.get(int(uomid))
-                    if uom:
-                        product.mapped["UOM"] = uom
+                self.set_uom("uomId", "UOM", row, product, uom_map)
+                self.set_uom("weightUomId", "WeightUOM", row, product, uom_map)
+                self.set_uom("sizeUomId", "SizeUOM", row, product, uom_map)
+
             product.part = objects.Part(row, custom_fields=custom_fields)
             products.append(product)
         return products

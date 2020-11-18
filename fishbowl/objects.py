@@ -336,6 +336,8 @@ class Part(FishbowlObject):
             ("TypeID", int),
             ("UOM", UOM),
             ("UOMID", int),  # Used for light parts
+            ("WeightUOM", UOM),
+            ("SizeUOM", UOM),
             ("Num", None),
             ("Description", None),
             ("Manufacturer", None),
@@ -373,6 +375,8 @@ class Product(FishbowlObject):
             ("Description", None),
             ("Price", decimal.Decimal),
             ("UOM", UOM),
+            ("WeightUOM", UOM),
+            ("SizeUOM", UOM),
             ("DefaultSOItemType", None),
             ("DisplayType", None),
             ("Weight", decimal.Decimal),
