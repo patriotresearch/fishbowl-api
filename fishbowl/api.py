@@ -54,26 +54,8 @@ INNER JOIN PART ON P.PARTID = PART.ID
 """
 
 # https://www.fishbowlinventory.com/files/databasedictionary/2017/tables/part.html
-PARTS_SQL = """
-SELECT
-    p.id,
-    p.num,
-    p.stdCost as StandardCost,
-    p.description,
-    p.typeID,
-    p.dateLastModified,
-    p.dateCreated,
-    p.len,
-    p.weight,
-    p.height,
-    p.width,
-    p.revision,
-    p.serializedFlag,
-    p.uomId,
-    p.weightUomId,
-    p.sizeUomId
-FROM Part p
-"""
+PARTS_SQL = "SELECT * FROM Part"
+
 
 SERIAL_NUMBER_SQL = (
     "SELECT sn.id, sn.serialId, sn.serialNum, p.num as PartNum, "
@@ -305,7 +287,7 @@ class JSONFishbowl(BaseFishbowl):
     # TODO: Convert to json
     @require_connected
     def send_request(
-        self, request, value=None, response_node_name=None, single=True, silence_errors=False,
+        self, request, value=None, response_node_name=None, single=True, silence_errors=False
     ):
         """
         Send a simple request to the API that follows the standard method.
@@ -436,7 +418,7 @@ class Fishbowl(BaseFishbowl):
 
     @require_connected
     def send_request(
-        self, request, value=None, response_node_name=None, single=True, silence_errors=False,
+        self, request, value=None, response_node_name=None, single=True, silence_errors=False
     ):
         """
         Send a simple request to the API that follows the standard method.
@@ -707,11 +689,21 @@ class Fishbowl(BaseFishbowl):
 
     @require_connected
     def get_parts_all(self):
-        parts = self.basic_query(PARTS_SQL, objects.Part)
+        parts = []
+
+        for row in self.send_query(PARTS_SQL):
+            row.pop("customFields")
+            row["StandardCost"] = row.pop("stdCost")
+
+            obj = objects.Part(row)
+
+            if not obj:
+                continue
+
+            parts.append((obj, row))
 
         uom_map = self.get_uom_map()
         for part, row in parts:
-
             self.set_uom("uomId", "UOM", row, part, uom_map)
             self.set_uom("weightUomId", "WeightUOM", row, part, uom_map)
             self.set_uom("sizeUomId", "SizeUOM", row, part, uom_map)
@@ -758,9 +750,7 @@ class Fishbowl(BaseFishbowl):
                 response_node_name="ProductGetRs",
             )
 
-            product_kwargs = {
-                "name": part_number,
-            }
+            product_kwargs = {"name": part_number}
             if lazy:
                 product_kwargs["lazy_data"] = get_product
             else:
