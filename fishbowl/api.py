@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 PRICING_RULES_SQL = (
     "SELECT p.id, p.isactive, product.num, "
     "p.patypeid, p.papercent, p.pabaseamounttypeid, p.paamount, "
-    "p.customerincltypeid, p.customerinclid "
+    "p.customerincltypeid, p.customerinclid, p.datelastmodified "
     "from pricingrule p INNER JOIN product on p.productinclid = product.id "
     "where p.productincltypeid = 2 and "
     "p.customerincltypeid in (1, 2)"
@@ -30,7 +30,7 @@ PRICING_RULES_SQL = (
 
 CUSTOMER_GROUP_PRICING_RULES_SQL = (
     "SELECT p.id, p.isactive, product.num, p.patypeid, p.papercent, "
-    "p.pabaseamounttypeid, p.paamount, p.customerincltypeid, "
+    "p.pabaseamounttypeid, p.paamount, p.customerincltypeid, p.datelastmodified, "
     "p.customerinclid, c.id as customerid, ag.name as accountgroupname, "
     "c.name as customername "
     "FROM pricingrule p "
@@ -835,16 +835,16 @@ LEFT JOIN CUSTOMINTEGER CI ON CI.recordid = PART.ID AND CI.customfieldid = (
 
         def process_rules(data, rules):
             for row in data:
-                customer_type = row.pop("CUSTOMERINCLTYPEID")
-                customer_id = row.pop("CUSTOMERINCLID")
+                customer_type = row.pop("customerincltypeid")
+                customer_id = row.pop("customerinclid")
                 if customer_type == "1":
                     customer_id = None
                 elif customer_type == "3":
-                    customer_id = int(row.pop("CUSTOMERID"))
+                    customer_id = int(row.pop("customerid"))
                 else:
                     customer_id = int(customer_id)
                 customer_pricing = rules.setdefault(customer_id, [])
-                customer_pricing.append(row)
+                customer_pricing.append(objects.PriceRule(row))
 
         process_rules(self.send_query(PRICING_RULES_SQL), pricing_rules)
         process_rules(self.send_query(CUSTOMER_GROUP_PRICING_RULES_SQL), pricing_rules)
@@ -860,21 +860,21 @@ LEFT JOIN CUSTOMINTEGER CI ON CI.recordid = PART.ID AND CI.customfieldid = (
         if populate_addresses:
             country_map = {}
             for country in self.send_query("SELECT * FROM COUNTRYCONST"):
-                country["CODE"] = country["ABBREVIATION"]
-                country_map[country["ID"]] = objects.Country(country)
+                country["CODE"] = country["abbreviation"]
+                country_map[country["id"]] = objects.Country(country)
             state_map = dict(
-                (state["ID"], objects.State(state))
+                (state["id"], objects.State(state))
                 for state in self.send_query("SELECT * FROM STATECONST")
             )
             address_map = {}
             for addr in self.send_query("SELECT * FROM ADDRESS"):
-                addresses = address_map.setdefault(addr["ACCOUNTID"], [])
+                addresses = address_map.setdefault(addr["accountId"], [])
                 address = objects.Address(addr)
                 if address:
-                    country = country_map.get(addr["COUNTRYID"])
+                    country = country_map.get(addr["countryId"])
                     if country:
                         address.mapped["Country"] = country
-                    state = state_map.get(addr["STATEID"])
+                    state = state_map.get(addr["stateId"])
                     if state:
                         address.mapped["State"] = state
                     addresses.append(address)
