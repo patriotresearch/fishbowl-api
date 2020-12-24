@@ -516,6 +516,17 @@ class Fishbowl(BaseFishbowl):
             )
 
     @require_connected
+    def create_sales_order(self, order: dict, items: list):
+        final_data = []
+
+        final_data.append(f'SO,{",".join(order.values())}')
+
+        for item in items:
+            final_data.append(f'Item,{",".join(item.values())}')
+
+        self.run_import("ImportSalesOrder", final_data)
+
+    @require_connected
     def get_part_info(self, partnum):
         """
         Returns all information relating to a part

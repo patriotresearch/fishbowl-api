@@ -89,6 +89,24 @@ def run():
         # response = fishbowl.send_request("CustomerNameListRq")
         # return etree.tostring(response)
 
+        # imports = fishbowl.get_available_imports()
+
+        # # data = fishbowl.get_import_headers("ImportSalesOrder")
+
+        # print(data)
+
+        # headers = data.split(,)
+
+        # print(headers)
+
+        data = [
+            # "Flag,SONum,Status,CustomerName,CustomerContact,BillToName,BillToAddress,BillToCity,BillToState,BillToZip,BillToCountry,ShipToName,ShipToAddress,ShipToCity,ShipToState,ShipToZip,ShipToCountry,ShipToResidential,CarrierName,TaxRateName,PriorityId,PONum,VendorPONum,Date,Salesman,ShippingTerms,PaymentTerms,FOB,Note,QuickBooksClassName,LocationGroupName,OrderDateScheduled,URL,CarrierService,DateExpired,Phone,Email,CF-Well Name",
+            "SO,123TESTAPI,10,bh oil,,Joe,123 Place,Odessa,TX,79762,United States,Joe,123 Place,Odessa,TX,79762,United States,false,UPS,TEXAS,,,,,,,,,,,,,,,,,,",
+            "Item,10,200018,,1,ea,20000,,,,,,,,,,",
+        ]
+
+        fishbowl.run_import("ImportSalesOrder", data)
+
 
 if __name__ == "__main__":
     run()
